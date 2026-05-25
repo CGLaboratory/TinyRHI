@@ -72,7 +72,7 @@ int main()
     };
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::VertexBuffer, .usage = BufferUsage::Static, .size = sizeof(vertices)},
+        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
         vertices);
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
@@ -81,19 +81,25 @@ int main()
 
     PipelineDesc pipelineDesc{};
     pipelineDesc.topology = PrimitiveTopology::Triangle;
-    pipelineDesc.vertex_layout = VertexLayoutDesc{
-        .stride = sizeof(Vertex),
-        .attributes =
+    pipelineDesc.vertex_input = VertexInputDesc{
+        .buffers =
             {
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Position,
-                    .format = VertexFormat::Float3,
-                    .offset = offsetof(Vertex, position),
-                },
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Color,
-                    .format = VertexFormat::Float4,
-                    .offset = offsetof(Vertex, color),
+                VertexBufferLayoutDesc{
+                    .binding = 0,
+                    .stride = sizeof(Vertex),
+                    .attributes =
+                        {
+                            VertexAttributeDesc{
+                                .location = 0,
+                                .format = VertexFormat::Float3,
+                                .offset = offsetof(Vertex, position),
+                            },
+                            VertexAttributeDesc{
+                                .location = 3,
+                                .format = VertexFormat::Float4,
+                                .offset = offsetof(Vertex, color),
+                            },
+                        },
                 },
             },
     };

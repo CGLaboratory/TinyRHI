@@ -14,7 +14,7 @@ class Device {
 public:
     virtual ~Device() = default;
     virtual BufferHandle createBuffer(const BufferDesc& desc, const void* data) = 0;
-    virtual void updateBuffer(BufferHandle buffer, const void* data, size_t size) = 0;
+    virtual void updateBuffer(BufferHandle buffer, size_t offset, const void* data, size_t size) = 0;
     virtual void destroyBuffer(BufferHandle buffer) = 0;
 
     virtual TextureHandle createTexture(const TextureDesc& desc) = 0;

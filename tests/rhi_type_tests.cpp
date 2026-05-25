@@ -3,6 +3,7 @@
 #include "TinyRHI/interface/pipeline.h"
 #include "TinyRHI/interface/shader.h"
 #include "TinyRHI/interface/texture.h"
+#include "TinyRHI/interface/buffer.h"
 
 using namespace lunalite::rhi;
 
@@ -29,6 +30,16 @@ TINYRHI_TEST_CASE("texture aspect depth stencil contains depth and stencil")
     TINYRHI_CHECK((TextureAspect::DepthStencil & TextureAspect::Depth) == TextureAspect::Depth);
     TINYRHI_CHECK((TextureAspect::DepthStencil & TextureAspect::Stencil) == TextureAspect::Stencil);
     TINYRHI_CHECK((TextureAspect::DepthStencil & TextureAspect::Color) == TextureAspect::None);
+}
+
+TINYRHI_TEST_CASE("buffer usage flags preserve individual bits")
+{
+    BufferUsage usage = BufferUsage::Vertex;
+    usage |= BufferUsage::CopyDst;
+
+    TINYRHI_CHECK((usage & BufferUsage::Vertex) == BufferUsage::Vertex);
+    TINYRHI_CHECK((usage & BufferUsage::CopyDst) == BufferUsage::CopyDst);
+    TINYRHI_CHECK((usage & BufferUsage::Uniform) == BufferUsage::None);
 }
 
 TINYRHI_TEST_CASE("color write mask can select individual channels")

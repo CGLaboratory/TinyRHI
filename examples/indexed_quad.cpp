@@ -77,10 +77,10 @@ int main()
     constexpr std::array<uint16_t, 6> indices = {{0, 1, 2, 0, 2, 3}};
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::VertexBuffer, .usage = BufferUsage::Static, .size = sizeof(vertices)},
+        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
         vertices.data());
     BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::IndexBuffer, .usage = BufferUsage::Static, .size = sizeof(indices)},
+        BufferDesc{.size = sizeof(indices), .usage = BufferUsage::Index | BufferUsage::CopyDst},
         indices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
@@ -89,19 +89,25 @@ int main()
 
     PipelineDesc pipelineDesc{};
     pipelineDesc.topology = PrimitiveTopology::Triangle;
-    pipelineDesc.vertex_layout = VertexLayoutDesc{
-        .stride = sizeof(Vertex),
-        .attributes =
+    pipelineDesc.vertex_input = VertexInputDesc{
+        .buffers =
             {
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Position,
-                    .format = VertexFormat::Float3,
-                    .offset = offsetof(Vertex, position),
-                },
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Color,
-                    .format = VertexFormat::Float4,
-                    .offset = offsetof(Vertex, color),
+                VertexBufferLayoutDesc{
+                    .binding = 0,
+                    .stride = sizeof(Vertex),
+                    .attributes =
+                        {
+                            VertexAttributeDesc{
+                                .location = 0,
+                                .format = VertexFormat::Float3,
+                                .offset = offsetof(Vertex, position),
+                            },
+                            VertexAttributeDesc{
+                                .location = 3,
+                                .format = VertexFormat::Float4,
+                                .offset = offsetof(Vertex, color),
+                            },
+                        },
                 },
             },
     };

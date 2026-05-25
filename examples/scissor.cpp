@@ -4,8 +4,8 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
+#include <cstdint>
 #include <thread>
 
 using namespace lunalite::rhi;
@@ -53,7 +53,7 @@ int main()
     }
 
     tinyrhi_examples::Win32GLSurface surface;
-    if (!surface.create("TinyRHI Alpha Blend", 960, 540, instance->getWindowRequirements())) {
+    if (!surface.create("TinyRHI Scissor", 960, 540, instance->getWindowRequirements())) {
         std::printf("Failed to create Win32 OpenGL surface.\n");
         return 1;
     }
@@ -67,20 +67,13 @@ int main()
     auto* swapchain = instance->getSwapchain();
     auto& commands = device->getCommandList();
 
-    constexpr std::array<Vertex, 12> vertices = {{
-        {{-0.72f, 0.46f, 0.0f}, {0.95f, 0.22f, 0.16f, 0.68f}},
-        {{-0.72f, -0.58f, 0.0f}, {0.95f, 0.22f, 0.16f, 0.68f}},
-        {{0.28f, -0.58f, 0.0f}, {0.95f, 0.22f, 0.16f, 0.68f}},
-        {{-0.72f, 0.46f, 0.0f}, {0.95f, 0.22f, 0.16f, 0.68f}},
-        {{0.28f, -0.58f, 0.0f}, {0.95f, 0.22f, 0.16f, 0.68f}},
-        {{0.28f, 0.46f, 0.0f}, {0.95f, 0.22f, 0.16f, 0.68f}},
-
-        {{-0.24f, 0.66f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
-        {{-0.24f, -0.34f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
-        {{0.76f, -0.34f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
-        {{-0.24f, 0.66f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
-        {{0.76f, -0.34f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
-        {{0.76f, 0.66f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
+    constexpr std::array<Vertex, 6> vertices = {{
+        {{-0.9f, 0.75f, 0.0f}, {0.95f, 0.25f, 0.18f, 1.0f}},
+        {{-0.9f, -0.75f, 0.0f}, {0.95f, 0.25f, 0.18f, 1.0f}},
+        {{0.9f, -0.75f, 0.0f}, {0.95f, 0.25f, 0.18f, 1.0f}},
+        {{-0.9f, 0.75f, 0.0f}, {0.95f, 0.25f, 0.18f, 1.0f}},
+        {{0.9f, -0.75f, 0.0f}, {0.95f, 0.25f, 0.18f, 1.0f}},
+        {{0.9f, 0.75f, 0.0f}, {0.95f, 0.25f, 0.18f, 1.0f}},
     }};
 
     BufferHandle vertexBuffer = device->createBuffer(
@@ -118,14 +111,12 @@ int main()
     pipelineDesc.layout = layout;
     pipelineDesc.vertex_shader = vertexShader;
     pipelineDesc.fragment_shader = fragmentShader;
-    ColorTargetState colorTarget{.format = TextureFormat::RGBA8};
-    colorTarget.blend.enabled = true;
-    pipelineDesc.render_target_state.color_targets.push_back(colorTarget);
+    pipelineDesc.render_target_state.color_targets.push_back(ColorTargetState{.format = TextureFormat::RGBA8});
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
     if (vertexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 || pipeline == 0) {
-        std::printf("Failed to create alpha blend resources.\n");
+        std::printf("Failed to create scissor resources.\n");
         instance->shutdown();
         return 1;
     }
@@ -143,10 +134,18 @@ int main()
         pass.width = swapchain->getWidth();
         pass.height = swapchain->getHeight();
 
+        const ScissorRect scissor{
+            .x = static_cast<int32_t>(pass.width / 4),
+            .y = static_cast<int32_t>(pass.height / 4),
+            .width = pass.width / 2,
+            .height = pass.height / 2,
+        };
+
         commands.begin();
         commands.beginRenderPass(pass);
         commands.setPipeline(pipeline);
         commands.setVertexBuffer(0, vertexBuffer);
+        commands.setScissor(0, &scissor, 1);
         commands.draw(static_cast<uint32_t>(vertices.size()));
         commands.endRenderPass();
         commands.end();

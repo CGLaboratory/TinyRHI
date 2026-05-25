@@ -5,6 +5,11 @@
 namespace lunalite::rhi {
 
 namespace {
+bool hasUsage(BufferUsage usage, BufferUsage required)
+{
+    return (usage & required) == required;
+}
+
 bool bindGroupEntryMatchesLayout(const BindGroupLayoutDesc& layout, const BindGroupEntry& entry)
 {
     for (const auto& layoutEntry : layout.entries) {
@@ -125,14 +130,14 @@ BindGroupHandle OpenGLDevice::createBindGroup(const BindGroupDesc& desc)
         switch (entry.type) {
             case BindingType::UniformBuffer: {
                 const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || buffer->type != BufferType::UniformBuffer) {
+                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Uniform)) {
                     return 0;
                 }
                 break;
             }
             case BindingType::StorageBuffer: {
                 const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || buffer->type != BufferType::StorageBuffer) {
+                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Storage)) {
                     return 0;
                 }
                 break;
@@ -175,14 +180,14 @@ void OpenGLDevice::updateBindGroup(BindGroupHandle group, const BindGroupDesc& d
         switch (entry.type) {
             case BindingType::UniformBuffer: {
                 const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || buffer->type != BufferType::UniformBuffer) {
+                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Uniform)) {
                     return;
                 }
                 break;
             }
             case BindingType::StorageBuffer: {
                 const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || buffer->type != BufferType::StorageBuffer) {
+                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Storage)) {
                     return;
                 }
                 break;

@@ -76,10 +76,10 @@ int main()
     UniformData params{{0.9f, 0.35f, 0.25f, 1.0f}};
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::VertexBuffer, .usage = BufferUsage::Static, .size = sizeof(vertices)},
+        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
         vertices);
     BufferHandle uniformBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::UniformBuffer, .usage = BufferUsage::Dynamic, .size = sizeof(UniformData)},
+        BufferDesc{.size = sizeof(UniformData), .usage = BufferUsage::Uniform | BufferUsage::CopyDst, .memory = MemoryUsage::CpuToGpu},
         &params);
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
@@ -108,14 +108,20 @@ int main()
 
     PipelineDesc pipelineDesc{};
     pipelineDesc.topology = PrimitiveTopology::Triangle;
-    pipelineDesc.vertex_layout = VertexLayoutDesc{
-        .stride = sizeof(Vertex),
-        .attributes =
+    pipelineDesc.vertex_input = VertexInputDesc{
+        .buffers =
             {
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Position,
-                    .format = VertexFormat::Float3,
-                    .offset = 0,
+                VertexBufferLayoutDesc{
+                    .binding = 0,
+                    .stride = sizeof(Vertex),
+                    .attributes =
+                        {
+                            VertexAttributeDesc{
+                                .location = 0,
+                                .format = VertexFormat::Float3,
+                                .offset = 0,
+                            },
+                        },
                 },
             },
     };
@@ -143,7 +149,7 @@ int main()
         params.color[1] = 0.5f + 0.5f * std::sin(elapsed * 1.3f + 2.0f);
         params.color[2] = 0.5f + 0.5f * std::sin(elapsed * 0.9f + 4.0f);
         params.color[3] = 1.0f;
-        device->updateBuffer(uniformBuffer, &params, sizeof(params));
+        device->updateBuffer(uniformBuffer, 0, &params, sizeof(params));
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{

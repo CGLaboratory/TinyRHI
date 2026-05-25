@@ -89,7 +89,7 @@ int main()
     }
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::VertexBuffer, .usage = BufferUsage::Static, .size = vertices.size() * sizeof(Vertex)},
+        BufferDesc{.size = vertices.size() * sizeof(Vertex), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
         vertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
@@ -98,19 +98,25 @@ int main()
 
     PipelineDesc pipelineDesc{};
     pipelineDesc.topology = PrimitiveTopology::Line;
-    pipelineDesc.vertex_layout = VertexLayoutDesc{
-        .stride = sizeof(Vertex),
-        .attributes =
+    pipelineDesc.vertex_input = VertexInputDesc{
+        .buffers =
             {
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Position,
-                    .format = VertexFormat::Float3,
-                    .offset = offsetof(Vertex, position),
-                },
-                VertexAttributeDesc{
-                    .semantic = VertexAttribute::Color,
-                    .format = VertexFormat::Float4,
-                    .offset = offsetof(Vertex, color),
+                VertexBufferLayoutDesc{
+                    .binding = 0,
+                    .stride = sizeof(Vertex),
+                    .attributes =
+                        {
+                            VertexAttributeDesc{
+                                .location = 0,
+                                .format = VertexFormat::Float3,
+                                .offset = offsetof(Vertex, position),
+                            },
+                            VertexAttributeDesc{
+                                .location = 3,
+                                .format = VertexFormat::Float4,
+                                .offset = offsetof(Vertex, color),
+                            },
+                        },
                 },
             },
     };

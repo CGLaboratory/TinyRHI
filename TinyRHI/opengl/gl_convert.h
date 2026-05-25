@@ -11,7 +11,7 @@
 
 namespace lunalite::rhi {
 
-GLenum toGLBufferUsage(BufferUsage usage);
+GLenum toGLBufferUsage(MemoryUsage usage);
 GLenum toGLIndexFormat(IndexFormat format);
 GLenum toGLShaderStage(ShaderStage stage);
 GLenum toGLTopology(PrimitiveTopology topology);
@@ -30,6 +30,5 @@ bool isDepthFormat(TextureFormat format);
 uint32_t vertexFormatComponentCount(VertexFormat format);
 GLenum vertexFormatType(VertexFormat format);
 bool isIntegerVertexFormat(VertexFormat format);
-GLuint vertexAttributeLocation(VertexAttribute semantic);
 
 } // namespace lunalite::rhi

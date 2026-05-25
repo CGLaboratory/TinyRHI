@@ -2,12 +2,13 @@
 
 namespace lunalite::rhi {
 
-GLenum toGLBufferUsage(BufferUsage usage)
+GLenum toGLBufferUsage(MemoryUsage usage)
 {
     switch (usage) {
-        case BufferUsage::Static:
+        case MemoryUsage::GpuOnly:
             return GL_STATIC_DRAW;
-        case BufferUsage::Dynamic:
+        case MemoryUsage::CpuToGpu:
+        case MemoryUsage::GpuToCpu:
             return GL_DYNAMIC_DRAW;
     }
 
@@ -317,22 +318,6 @@ bool isIntegerVertexFormat(VertexFormat format)
     }
 
     return false;
-}
-
-GLuint vertexAttributeLocation(VertexAttribute semantic)
-{
-    switch (semantic) {
-        case VertexAttribute::Position:
-            return 0;
-        case VertexAttribute::Normal:
-            return 1;
-        case VertexAttribute::TexCoord:
-            return 2;
-        case VertexAttribute::Color:
-            return 3;
-    }
-
-    return 0;
 }
 
 } // namespace lunalite::rhi

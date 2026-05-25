@@ -56,27 +56,31 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
     GLuint vao = 0;
     glCreateVertexArrays(1, &vao);
 
-    for (const auto& attribute : desc.vertex_layout.attributes) {
-        const GLuint location = vertexAttributeLocation(attribute.semantic);
-        const auto componentCount = static_cast<GLint>(vertexFormatComponentCount(attribute.format));
-        const GLenum type = vertexFormatType(attribute.format);
+    for (const auto& buffer : desc.vertex_input.buffers) {
+        glVertexArrayBindingDivisor(vao, buffer.binding, buffer.step_mode == VertexStepMode::Instance ? 1 : 0);
 
-        glEnableVertexArrayAttrib(vao, location);
+        for (const auto& attribute : buffer.attributes) {
+            const auto location = static_cast<GLuint>(attribute.location);
+            const auto componentCount = static_cast<GLint>(vertexFormatComponentCount(attribute.format));
+            const GLenum type = vertexFormatType(attribute.format);
 
-        if (isIntegerVertexFormat(attribute.format)) {
-            glVertexArrayAttribIFormat(vao, location, componentCount, type, attribute.offset);
-        } else {
-            glVertexArrayAttribFormat(vao, location, componentCount, type, GL_FALSE, attribute.offset);
+            glEnableVertexArrayAttrib(vao, location);
+
+            if (isIntegerVertexFormat(attribute.format)) {
+                glVertexArrayAttribIFormat(vao, location, componentCount, type, attribute.offset);
+            } else {
+                glVertexArrayAttribFormat(vao, location, componentCount, type, GL_FALSE, attribute.offset);
+            }
+
+            glVertexArrayAttribBinding(vao, location, buffer.binding);
         }
-
-        glVertexArrayAttribBinding(vao, location, 0);
     }
 
     m_pipelines.push_back(OpenGLPipeline{
         .program = program,
         .vao = vao,
         .topology = toGLTopology(desc.topology),
-        .vertex_layout = desc.vertex_layout,
+        .vertex_input = desc.vertex_input,
         .layout = desc.layout,
         .render_target_state = desc.render_target_state,
         .depth_state = desc.depth_state,

@@ -14,7 +14,8 @@ class OpenGLCommandList;
 
 struct OpenGLBuffer {
     GLuint id{0};
-    BufferType type{BufferType::VertexBuffer};
+    BufferUsage usage{BufferUsage::None};
+    MemoryUsage memory{MemoryUsage::GpuOnly};
     size_t size{0};
 };
 
@@ -27,7 +28,7 @@ struct OpenGLPipeline {
     GLuint program{0};
     GLuint vao{0};
     GLenum topology{GL_TRIANGLES};
-    VertexLayoutDesc vertex_layout;
+    VertexInputDesc vertex_input;
     PipelineLayoutHandle layout{0};
     RenderTargetState render_target_state{};
     DepthState depth_state{};
@@ -85,7 +86,7 @@ public:
     ~OpenGLDevice() override;
 
     BufferHandle createBuffer(const BufferDesc& desc, const void* data) override;
-    void updateBuffer(BufferHandle buffer, const void* data, size_t size) override;
+    void updateBuffer(BufferHandle buffer, size_t offset, const void* data, size_t size) override;
     void destroyBuffer(BufferHandle buffer) override;
 
     TextureHandle createTexture(const TextureDesc& desc) override;

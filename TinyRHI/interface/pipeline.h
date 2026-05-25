@@ -72,22 +72,26 @@ enum class VertexFormat {
     Byte
 };
 
-enum class VertexAttribute {
-    Position,
-    Normal,
-    TexCoord,
-    Color
+enum class VertexStepMode {
+    Vertex,
+    Instance
 };
 
 struct VertexAttributeDesc {
-    VertexAttribute semantic;
-    VertexFormat format;
-    uint32_t offset;
+    uint32_t location{0};
+    VertexFormat format{VertexFormat::Float1};
+    uint32_t offset{0};
 };
 
-struct VertexLayoutDesc {
-    uint32_t stride;
+struct VertexBufferLayoutDesc {
+    uint32_t binding{0};
+    uint32_t stride{0};
+    VertexStepMode step_mode{VertexStepMode::Vertex};
     std::vector<VertexAttributeDesc> attributes;
+};
+
+struct VertexInputDesc {
+    std::vector<VertexBufferLayoutDesc> buffers;
 };
 
 struct DepthState {
@@ -155,7 +159,7 @@ struct PipelineLayoutDesc {
 
 struct PipelineDesc {
     PrimitiveTopology topology;
-    VertexLayoutDesc vertex_layout;
+    VertexInputDesc vertex_input;
     PipelineLayoutHandle layout{0};
     ShaderHandle vertex_shader;
     ShaderHandle fragment_shader;

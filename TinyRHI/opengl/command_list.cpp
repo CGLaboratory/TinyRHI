@@ -15,6 +15,11 @@ OpenGLCommandList::OpenGLCommandList(OpenGLDevice& device)
 {}
 
 namespace {
+bool hasUsage(BufferUsage usage, BufferUsage required)
+{
+    return (usage & required) == required;
+}
+
 size_t indexFormatSize(IndexFormat format)
 {
     switch (format) {
@@ -43,6 +48,7 @@ void OpenGLCommandList::begin()
     m_current_pipeline = 0;
     m_current_index_buffer = 0;
     m_current_index_format = IndexFormat::UInt32;
+    m_current_index_buffer_offset = 0;
 }
 
 void OpenGLCommandList::end() {}
@@ -109,6 +115,7 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
     if (info.width > 0 && info.height > 0) {
         glViewport(0, 0, static_cast<GLsizei>(info.width), static_cast<GLsizei>(info.height));
     }
+    glDisable(GL_SCISSOR_TEST);
 
     for (size_t i = 0; i < info.color_attachments.size(); ++i) {
         const auto& color = info.color_attachments[i];
@@ -205,7 +212,7 @@ void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
         switch (entry.type) {
             case BindingType::UniformBuffer: {
                 auto* glBuffer = m_device.getBuffer(entry.buffer.buffer);
-                if (glBuffer == nullptr || glBuffer->type != BufferType::UniformBuffer) {
+                if (glBuffer == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Uniform)) {
                     break;
                 }
 
@@ -222,7 +229,7 @@ void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
             }
             case BindingType::StorageBuffer: {
                 auto* glBuffer = m_device.getBuffer(entry.buffer.buffer);
-                if (glBuffer == nullptr || glBuffer->type != BufferType::StorageBuffer) {
+                if (glBuffer == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Storage)) {
                     break;
                 }
 
@@ -268,30 +275,86 @@ void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
     }
 }
 
-void OpenGLCommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer)
+void OpenGLCommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer, size_t offset)
 {
     auto* glBuffer = m_device.getBuffer(buffer);
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
 
-    if (glBuffer == nullptr || glPipeline == nullptr || glBuffer->type != BufferType::VertexBuffer) {
+    if (glBuffer == nullptr || glPipeline == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Vertex)) {
         return;
     }
 
-    glVertexArrayVertexBuffer(glPipeline->vao, slot, glBuffer->id, 0, glPipeline->vertex_layout.stride);
+    for (const auto& bufferLayout : glPipeline->vertex_input.buffers) {
+        if (bufferLayout.binding == slot) {
+            glVertexArrayVertexBuffer(glPipeline->vao,
+                                      slot,
+                                      glBuffer->id,
+                                      static_cast<GLintptr>(offset),
+                                      bufferLayout.stride);
+            return;
+        }
+    }
 }
 
-void OpenGLCommandList::setIndexBuffer(BufferHandle buffer, IndexFormat format)
+void OpenGLCommandList::setIndexBuffer(BufferHandle buffer, IndexFormat format, size_t offset)
 {
     auto* glBuffer = m_device.getBuffer(buffer);
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
 
-    if (glBuffer == nullptr || glPipeline == nullptr || glBuffer->type != BufferType::IndexBuffer) {
+    if (glBuffer == nullptr || glPipeline == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Index)) {
         return;
     }
 
     m_current_index_buffer = buffer;
     m_current_index_format = format;
+    m_current_index_buffer_offset = offset;
     glVertexArrayElementBuffer(glPipeline->vao, glBuffer->id);
+}
+
+void OpenGLCommandList::setViewport(uint32_t first, const Viewport* viewports, uint32_t count)
+{
+    if (viewports == nullptr || count == 0) {
+        return;
+    }
+
+    std::vector<GLfloat> values;
+    values.reserve(static_cast<size_t>(count) * 4);
+    std::vector<GLdouble> depthRanges;
+    depthRanges.reserve(static_cast<size_t>(count) * 2);
+
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto& viewport = viewports[i];
+        values.push_back(viewport.x);
+        values.push_back(viewport.y);
+        values.push_back(viewport.width);
+        values.push_back(viewport.height);
+        depthRanges.push_back(viewport.min_depth);
+        depthRanges.push_back(viewport.max_depth);
+    }
+
+    glViewportArrayv(first, static_cast<GLsizei>(count), values.data());
+    glDepthRangeArrayv(first, static_cast<GLsizei>(count), depthRanges.data());
+}
+
+void OpenGLCommandList::setScissor(uint32_t first, const ScissorRect* scissors, uint32_t count)
+{
+    if (scissors == nullptr || count == 0) {
+        return;
+    }
+
+    std::vector<GLint> values;
+    values.reserve(static_cast<size_t>(count) * 4);
+
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto& scissor = scissors[i];
+        values.push_back(scissor.x);
+        values.push_back(scissor.y);
+        values.push_back(static_cast<GLint>(scissor.width));
+        values.push_back(static_cast<GLint>(scissor.height));
+    }
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissorArrayv(first, static_cast<GLsizei>(count), values.data());
 }
 
 void OpenGLCommandList::resourceBarrier(const TextureBarrier* barriers, uint32_t count)
@@ -317,11 +380,11 @@ void OpenGLCommandList::drawIndexed(uint32_t index_count, uint32_t first_index, 
 {
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
     auto* glIndexBuffer = m_device.getBuffer(m_current_index_buffer);
-    if (glPipeline == nullptr || glIndexBuffer == nullptr || glIndexBuffer->type != BufferType::IndexBuffer) {
+    if (glPipeline == nullptr || glIndexBuffer == nullptr || !hasUsage(glIndexBuffer->usage, BufferUsage::Index)) {
         return;
     }
 
-    const auto offset = static_cast<uintptr_t>(first_index) * indexFormatSize(m_current_index_format);
+    const auto offset = m_current_index_buffer_offset + static_cast<uintptr_t>(first_index) * indexFormatSize(m_current_index_format);
     glDrawElementsBaseVertex(glPipeline->topology,
                              static_cast<GLsizei>(index_count),
                              toGLIndexFormat(m_current_index_format),

@@ -6,8 +6,9 @@ using namespace lunalite::rhi;
 
 TINYRHI_TEST_CASE("buffer and index formats map to OpenGL enums")
 {
-    TINYRHI_CHECK(toGLBufferUsage(BufferUsage::Static) == GL_STATIC_DRAW);
-    TINYRHI_CHECK(toGLBufferUsage(BufferUsage::Dynamic) == GL_DYNAMIC_DRAW);
+    TINYRHI_CHECK(toGLBufferUsage(MemoryUsage::GpuOnly) == GL_STATIC_DRAW);
+    TINYRHI_CHECK(toGLBufferUsage(MemoryUsage::CpuToGpu) == GL_DYNAMIC_DRAW);
+    TINYRHI_CHECK(toGLBufferUsage(MemoryUsage::GpuToCpu) == GL_DYNAMIC_DRAW);
     TINYRHI_CHECK(toGLIndexFormat(IndexFormat::UInt16) == GL_UNSIGNED_SHORT);
     TINYRHI_CHECK(toGLIndexFormat(IndexFormat::UInt32) == GL_UNSIGNED_INT);
 }
@@ -49,11 +50,6 @@ TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 
 TINYRHI_TEST_CASE("vertex formats describe locations and component layouts")
 {
-    TINYRHI_CHECK(vertexAttributeLocation(VertexAttribute::Position) == 0);
-    TINYRHI_CHECK(vertexAttributeLocation(VertexAttribute::Normal) == 1);
-    TINYRHI_CHECK(vertexAttributeLocation(VertexAttribute::TexCoord) == 2);
-    TINYRHI_CHECK(vertexAttributeLocation(VertexAttribute::Color) == 3);
-
     TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::Float1) == 1);
     TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::Float2) == 2);
     TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::Float3) == 3);
