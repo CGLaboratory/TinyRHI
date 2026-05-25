@@ -23,6 +23,7 @@ struct BindGroupLayoutEntry {
     BindingType type{BindingType::UniformBuffer};
     ShaderStageFlags stages{shaderStageFlag(ShaderStage::Vertex) | shaderStageFlag(ShaderStage::Fragment)};
     uint32_t count{1};
+    bool dynamic_offset{false};
 };
 
 struct BindGroupLayoutDesc {

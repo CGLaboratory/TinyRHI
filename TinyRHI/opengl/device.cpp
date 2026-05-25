@@ -10,22 +10,124 @@ bool hasUsage(BufferUsage usage, BufferUsage required)
     return (usage & required) == required;
 }
 
-bool bindGroupEntryMatchesLayout(const BindGroupLayoutDesc& layout, const BindGroupEntry& entry)
+bool isBufferBinding(BindingType type)
+{
+    return type == BindingType::UniformBuffer || type == BindingType::StorageBuffer;
+}
+
+const BindGroupLayoutEntry* findLayoutEntry(const BindGroupLayoutDesc& layout, uint32_t binding)
 {
     for (const auto& layoutEntry : layout.entries) {
-        if (layoutEntry.binding == entry.binding) {
-            return layoutEntry.type == entry.type;
+        if (layoutEntry.binding == binding) {
+            return &layoutEntry;
         }
+    }
+
+    return nullptr;
+}
+
+bool bindGroupLayoutDescValid(const BindGroupLayoutDesc& desc)
+{
+    for (size_t i = 0; i < desc.entries.size(); ++i) {
+        const auto& entry = desc.entries[i];
+        if (entry.count != 1) {
+            return false;
+        }
+
+        if (entry.dynamic_offset && !isBufferBinding(entry.type)) {
+            return false;
+        }
+
+        for (size_t j = i + 1; j < desc.entries.size(); ++j) {
+            if (entry.binding == desc.entries[j].binding) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool bindGroupDescMatchesLayout(const BindGroupLayoutDesc& layout, const BindGroupDesc& desc)
+{
+    if (desc.entries.size() != layout.entries.size()) {
+        return false;
+    }
+
+    for (const auto& entry : desc.entries) {
+        const auto* layoutEntry = findLayoutEntry(layout, entry.binding);
+        if (layoutEntry == nullptr || layoutEntry->type != entry.type) {
+            return false;
+        }
+    }
+
+    for (size_t i = 0; i < desc.entries.size(); ++i) {
+        for (size_t j = i + 1; j < desc.entries.size(); ++j) {
+            if (desc.entries[i].binding == desc.entries[j].binding) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool bufferBindingValid(const OpenGLBuffer& buffer, const BufferBinding& binding)
+{
+    if (binding.offset > buffer.size) {
+        return false;
+    }
+
+    return binding.size == 0 || binding.size <= buffer.size - binding.offset;
+}
+
+bool bindGroupEntryResourcesValid(OpenGLDevice& device, const BindGroupEntry& entry)
+{
+    switch (entry.type) {
+        case BindingType::UniformBuffer: {
+            const auto* buffer = device.getBuffer(entry.buffer.buffer);
+            return buffer != nullptr && hasUsage(buffer->usage, BufferUsage::Uniform)
+                   && bufferBindingValid(*buffer, entry.buffer);
+        }
+        case BindingType::StorageBuffer: {
+            const auto* buffer = device.getBuffer(entry.buffer.buffer);
+            return buffer != nullptr && hasUsage(buffer->usage, BufferUsage::Storage)
+                   && bufferBindingValid(*buffer, entry.buffer);
+        }
+        case BindingType::SampledTexture:
+            return device.getTextureView(entry.texture_view) != nullptr;
+        case BindingType::Sampler:
+            return device.getSampler(entry.sampler) != nullptr;
+        case BindingType::CombinedImageSampler:
+            return device.getTextureView(entry.texture_view) != nullptr && device.getSampler(entry.sampler) != nullptr;
     }
 
     return false;
 }
 
-bool bindGroupDescMatchesLayout(const BindGroupLayoutDesc& layout, const BindGroupDesc& desc)
+bool pushConstantRangesValid(const std::vector<PushConstantRange>& ranges)
 {
-    for (const auto& entry : desc.entries) {
-        if (!bindGroupEntryMatchesLayout(layout, entry)) {
+    for (size_t i = 0; i < ranges.size(); ++i) {
+        const auto& range = ranges[i];
+        if (range.size == 0 || range.stages == 0) {
             return false;
+        }
+
+        const uint32_t rangeEnd = range.offset + range.size;
+        if (rangeEnd < range.offset) {
+            return false;
+        }
+
+        for (size_t j = i + 1; j < ranges.size(); ++j) {
+            const auto& other = ranges[j];
+            const uint32_t otherEnd = other.offset + other.size;
+            if (otherEnd < other.offset) {
+                return false;
+            }
+
+            if ((range.stages & other.stages) != 0 && range.offset < otherEnd && other.offset < rangeEnd) {
+                return false;
+            }
         }
     }
 
@@ -100,6 +202,10 @@ void OpenGLDevice::destroySampler(SamplerHandle sampler)
 
 BindGroupLayoutHandle OpenGLDevice::createBindGroupLayout(const BindGroupLayoutDesc& desc)
 {
+    if (!bindGroupLayoutDescValid(desc)) {
+        return 0;
+    }
+
     m_bind_group_layouts.push_back(OpenGLBindGroupLayout{.desc = desc, .valid = true});
     return static_cast<BindGroupLayoutHandle>(m_bind_group_layouts.size());
 }
@@ -127,36 +233,8 @@ BindGroupHandle OpenGLDevice::createBindGroup(const BindGroupDesc& desc)
     }
 
     for (const auto& entry : desc.entries) {
-        switch (entry.type) {
-            case BindingType::UniformBuffer: {
-                const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Uniform)) {
-                    return 0;
-                }
-                break;
-            }
-            case BindingType::StorageBuffer: {
-                const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Storage)) {
-                    return 0;
-                }
-                break;
-            }
-            case BindingType::SampledTexture:
-                if (getTextureView(entry.texture_view) == nullptr) {
-                    return 0;
-                }
-                break;
-            case BindingType::Sampler:
-                if (getSampler(entry.sampler) == nullptr) {
-                    return 0;
-                }
-                break;
-            case BindingType::CombinedImageSampler:
-                if (getTextureView(entry.texture_view) == nullptr || getSampler(entry.sampler) == nullptr) {
-                    return 0;
-                }
-                break;
+        if (!bindGroupEntryResourcesValid(*this, entry)) {
+            return 0;
         }
     }
 
@@ -177,36 +255,8 @@ void OpenGLDevice::updateBindGroup(BindGroupHandle group, const BindGroupDesc& d
     }
 
     for (const auto& entry : desc.entries) {
-        switch (entry.type) {
-            case BindingType::UniformBuffer: {
-                const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Uniform)) {
-                    return;
-                }
-                break;
-            }
-            case BindingType::StorageBuffer: {
-                const auto* buffer = getBuffer(entry.buffer.buffer);
-                if (buffer == nullptr || !hasUsage(buffer->usage, BufferUsage::Storage)) {
-                    return;
-                }
-                break;
-            }
-            case BindingType::SampledTexture:
-                if (getTextureView(entry.texture_view) == nullptr) {
-                    return;
-                }
-                break;
-            case BindingType::Sampler:
-                if (getSampler(entry.sampler) == nullptr) {
-                    return;
-                }
-                break;
-            case BindingType::CombinedImageSampler:
-                if (getTextureView(entry.texture_view) == nullptr || getSampler(entry.sampler) == nullptr) {
-                    return;
-                }
-                break;
+        if (!bindGroupEntryResourcesValid(*this, entry)) {
+            return;
         }
     }
 
@@ -230,6 +280,10 @@ PipelineLayoutHandle OpenGLDevice::createPipelineLayout(const PipelineLayoutDesc
         if (getBindGroupLayout(layout) == nullptr) {
             return 0;
         }
+    }
+
+    if (!pushConstantRangesValid(desc.push_constants)) {
+        return 0;
     }
 
     m_pipeline_layouts.push_back(OpenGLPipelineLayout{.desc = desc, .valid = true});

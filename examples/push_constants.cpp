@@ -1,8 +1,10 @@
 #include "TinyRHI/backend_factory.h"
 #include "common/win32_gl_surface.h"
 
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <thread>
 
@@ -14,7 +16,7 @@ struct Vertex {
     float position[3];
 };
 
-struct UniformData {
+struct PushConstants {
     float color[4];
 };
 
@@ -30,15 +32,13 @@ void main()
 
 constexpr const char* kFragmentShader = R"GLSL(
 #version 450 core
-layout(std140, binding = 0) uniform Params {
-    vec4 uColor;
-};
+uniform vec4 uPushConstants[1];
 
 out vec4 outColor;
 
 void main()
 {
-    outColor = uColor;
+    outColor = uPushConstants[0];
 }
 )GLSL";
 
@@ -53,7 +53,7 @@ int main()
     }
 
     tinyrhi_examples::Win32GLSurface surface;
-    if (!surface.create("TinyRHI Uniform Triangle", 960, 540, instance->getWindowRequirements())) {
+    if (!surface.create("TinyRHI Push Constants", 960, 540, instance->getWindowRequirements())) {
         std::printf("Failed to create Win32 OpenGL surface.\n");
         return 1;
     }
@@ -67,44 +67,26 @@ int main()
     auto* swapchain = instance->getSwapchain();
     auto& commands = device->getCommandList();
 
-    const Vertex vertices[] = {
-        {{0.0f, 0.65f, 0.0f}},
-        {{-0.65f, -0.55f, 0.0f}},
-        {{0.65f, -0.55f, 0.0f}},
-    };
-
-    UniformData params{{0.9f, 0.35f, 0.25f, 1.0f}};
+    constexpr std::array<Vertex, 3> vertices = {{
+        {{0.0f, 0.66f, 0.0f}},
+        {{-0.72f, -0.56f, 0.0f}},
+        {{0.72f, -0.56f, 0.0f}},
+    }};
 
     BufferHandle vertexBuffer = device->createBuffer(
         BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
-        vertices);
-    BufferHandle uniformBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(UniformData), .usage = BufferUsage::Uniform | BufferUsage::CopyDst, .memory = MemoryUsage::CpuToGpu},
-        &params);
+        vertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
 
-    BindGroupLayoutDesc bindGroupLayoutDesc{};
-    bindGroupLayoutDesc.entries.push_back(BindGroupLayoutEntry{
-        .binding = 0,
-        .type = BindingType::UniformBuffer,
-        .stages = shaderStageFlag(ShaderStage::Fragment),
-    });
-    BindGroupLayoutHandle bindGroupLayout = device->createBindGroupLayout(bindGroupLayoutDesc);
-
     PipelineLayoutDesc pipelineLayoutDesc{};
-    pipelineLayoutDesc.bind_group_layouts.push_back(bindGroupLayout);
-    PipelineLayoutHandle layout = device->createPipelineLayout(pipelineLayoutDesc);
-
-    BindGroupDesc bindGroupDesc{};
-    bindGroupDesc.layout = bindGroupLayout;
-    bindGroupDesc.entries.push_back(BindGroupEntry{
-        .binding = 0,
-        .type = BindingType::UniformBuffer,
-        .buffer = BufferBinding{.buffer = uniformBuffer, .offset = 0, .size = sizeof(UniformData)},
+    pipelineLayoutDesc.push_constants.push_back(PushConstantRange{
+        .stages = shaderStageFlag(ShaderStage::Fragment),
+        .offset = 0,
+        .size = sizeof(PushConstants),
     });
-    BindGroupHandle bindGroup = device->createBindGroup(bindGroupDesc);
+    PipelineLayoutHandle layout = device->createPipelineLayout(pipelineLayoutDesc);
 
     PipelineDesc pipelineDesc{};
     pipelineDesc.topology = PrimitiveTopology::Triangle;
@@ -116,11 +98,7 @@ int main()
                     .stride = sizeof(Vertex),
                     .attributes =
                         {
-                            VertexAttributeDesc{
-                                .location = 0,
-                                .format = VertexFormat::Float3,
-                                .offset = 0,
-                            },
+                            VertexAttributeDesc{.location = 0, .format = VertexFormat::Float3, .offset = 0},
                         },
                 },
             },
@@ -132,9 +110,8 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || uniformBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || bindGroupLayout == 0 ||
-        layout == 0 || bindGroup == 0 || pipeline == 0) {
-        std::printf("Failed to create uniform triangle resources.\n");
+    if (vertexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 || pipeline == 0) {
+        std::printf("Failed to create push constant resources.\n");
         instance->shutdown();
         return 1;
     }
@@ -145,18 +122,19 @@ int main()
         swapchain->resize(surface.getWidth(), surface.getHeight());
 
         const auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-        params.color[0] = 0.5f + 0.5f * std::sin(elapsed * 1.7f);
-        params.color[1] = 0.5f + 0.5f * std::sin(elapsed * 1.3f + 2.0f);
-        params.color[2] = 0.5f + 0.5f * std::sin(elapsed * 0.9f + 4.0f);
-        params.color[3] = 1.0f;
-        device->updateBuffer(uniformBuffer, 0, &params, sizeof(params));
+        const PushConstants constants{{
+            0.5f + 0.5f * std::sin(elapsed * 1.4f),
+            0.5f + 0.5f * std::sin(elapsed * 1.1f + 2.0f),
+            0.5f + 0.5f * std::sin(elapsed * 0.8f + 4.0f),
+            1.0f,
+        }};
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
             .view = swapchain->getCurrentColorTextureView(),
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
-            .clear_color = ClearColor{0.05f, 0.05f, 0.06f, 1.0f},
+            .clear_color = ClearColor{0.045f, 0.05f, 0.06f, 1.0f},
         });
         pass.width = swapchain->getWidth();
         pass.height = swapchain->getHeight();
@@ -164,9 +142,9 @@ int main()
         commands.begin();
         commands.beginRenderPass(pass);
         commands.setPipeline(pipeline);
-        commands.setBindGroup(0, bindGroup);
+        commands.pushConstants(shaderStageFlag(ShaderStage::Fragment), 0, sizeof(constants), &constants);
         commands.setVertexBuffer(0, vertexBuffer);
-        commands.draw(3);
+        commands.draw(static_cast<uint32_t>(vertices.size()));
         commands.endRenderPass();
         commands.end();
 
@@ -175,12 +153,9 @@ int main()
     }
 
     device->destroyPipeline(pipeline);
-    device->destroyBindGroup(bindGroup);
     device->destroyPipelineLayout(layout);
-    device->destroyBindGroupLayout(bindGroupLayout);
     device->destroyShader(fragmentShader);
     device->destroyShader(vertexShader);
-    device->destroyBuffer(uniformBuffer);
     device->destroyBuffer(vertexBuffer);
     instance->shutdown();
     return 0;

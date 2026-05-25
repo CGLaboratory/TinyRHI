@@ -1,7 +1,9 @@
 add_executable(tinyrhi_tests
     backend_factory_tests.cpp
+    bind_group_tests.cpp
     gl_convert_tests.cpp
     main.cpp
+    pipeline_layout_tests.cpp
     rhi_type_tests.cpp
 )
 

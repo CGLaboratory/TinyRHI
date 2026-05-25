@@ -20,6 +20,47 @@ bool hasUsage(BufferUsage usage, BufferUsage required)
     return (usage & required) == required;
 }
 
+const BindGroupLayoutEntry* findLayoutEntry(const BindGroupLayoutDesc& layout, uint32_t binding)
+{
+    for (const auto& entry : layout.entries) {
+        if (entry.binding == binding) {
+            return &entry;
+        }
+    }
+
+    return nullptr;
+}
+
+uint32_t dynamicOffsetCount(const BindGroupLayoutDesc& layout)
+{
+    uint32_t count = 0;
+    for (const auto& entry : layout.entries) {
+        if (entry.dynamic_offset) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+size_t dynamicOffsetForBinding(const BindGroupLayoutDesc& layout, uint32_t binding, const uint32_t* dynamic_offsets)
+{
+    uint32_t dynamicIndex = 0;
+    for (const auto& entry : layout.entries) {
+        if (!entry.dynamic_offset) {
+            continue;
+        }
+
+        if (entry.binding == binding) {
+            return dynamic_offsets[dynamicIndex];
+        }
+
+        ++dynamicIndex;
+    }
+
+    return 0;
+}
+
 size_t indexFormatSize(IndexFormat format)
 {
     switch (format) {
@@ -40,6 +81,44 @@ uint32_t flattenedBinding(uint32_t set, uint32_t binding)
 GLboolean colorWriteEnabled(ColorWriteMask mask, ColorWriteMask channel)
 {
     return (mask & channel) != ColorWriteMask::None ? GL_TRUE : GL_FALSE;
+}
+
+bool pushConstantWriteCovered(const PipelineLayoutDesc& layout, ShaderStageFlags stages, uint32_t offset, uint32_t size)
+{
+    if (stages == 0 || size == 0) {
+        return false;
+    }
+
+    const uint32_t writeEnd = offset + size;
+    if (writeEnd < offset) {
+        return false;
+    }
+
+    for (const auto& range : layout.push_constants) {
+        const uint32_t rangeEnd = range.offset + range.size;
+        if ((stages & ~range.stages) == 0 && offset >= range.offset && writeEnd <= rangeEnd) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void uploadPushConstantUniforms(GLuint program, uint32_t offset, uint32_t size, const void* data)
+{
+    if (offset % 16 != 0 || size % 16 != 0) {
+        return;
+    }
+
+    const GLint location = glGetUniformLocation(program, "uPushConstants");
+    if (location < 0) {
+        return;
+    }
+
+    const auto firstVec4 = static_cast<GLint>(offset / 16);
+    const auto vec4Count = static_cast<GLsizei>(size / 16);
+    const auto* values = static_cast<const GLfloat*>(data);
+    glProgramUniform4fv(program, location + firstVec4, vec4Count, values);
 }
 } // namespace
 
@@ -192,7 +271,10 @@ void OpenGLCommandList::setPipeline(PipelineHandle pipeline)
     }
 }
 
-void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
+void OpenGLCommandList::setBindGroup(uint32_t set,
+                                     BindGroupHandle group,
+                                     const uint32_t* dynamic_offsets,
+                                     uint32_t dynamic_offset_count)
 {
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
     auto* glGroup = m_device.getBindGroup(group);
@@ -206,8 +288,18 @@ void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
         return;
     }
 
+    auto* groupLayout = m_device.getBindGroupLayout(glGroup->layout);
+    if (groupLayout == nullptr || dynamicOffsetCount(groupLayout->desc) != dynamic_offset_count
+        || (dynamic_offset_count > 0 && dynamic_offsets == nullptr)) {
+        return;
+    }
+
     for (const auto& entry : glGroup->entries) {
         const auto binding = flattenedBinding(set, entry.binding);
+        const auto* layoutEntry = findLayoutEntry(groupLayout->desc, entry.binding);
+        const size_t dynamicOffset = layoutEntry != nullptr && layoutEntry->dynamic_offset
+                                         ? dynamicOffsetForBinding(groupLayout->desc, entry.binding, dynamic_offsets)
+                                         : 0;
 
         switch (entry.type) {
             case BindingType::UniformBuffer: {
@@ -216,12 +308,23 @@ void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
                     break;
                 }
 
+                const size_t offset = entry.buffer.offset + dynamicOffset;
+                if (offset > glBuffer->size || (entry.buffer.size > 0 && entry.buffer.size > glBuffer->size - offset)) {
+                    break;
+                }
+
                 if (entry.buffer.size > 0) {
                     glBindBufferRange(GL_UNIFORM_BUFFER,
                                       binding,
                                       glBuffer->id,
-                                      static_cast<GLintptr>(entry.buffer.offset),
+                                      static_cast<GLintptr>(offset),
                                       static_cast<GLsizeiptr>(entry.buffer.size));
+                } else if (dynamicOffset > 0) {
+                    glBindBufferRange(GL_UNIFORM_BUFFER,
+                                      binding,
+                                      glBuffer->id,
+                                      static_cast<GLintptr>(offset),
+                                      static_cast<GLsizeiptr>(glBuffer->size - offset));
                 } else {
                     glBindBufferBase(GL_UNIFORM_BUFFER, binding, glBuffer->id);
                 }
@@ -233,12 +336,23 @@ void OpenGLCommandList::setBindGroup(uint32_t set, BindGroupHandle group)
                     break;
                 }
 
+                const size_t offset = entry.buffer.offset + dynamicOffset;
+                if (offset > glBuffer->size || (entry.buffer.size > 0 && entry.buffer.size > glBuffer->size - offset)) {
+                    break;
+                }
+
                 if (entry.buffer.size > 0) {
                     glBindBufferRange(GL_SHADER_STORAGE_BUFFER,
                                       binding,
                                       glBuffer->id,
-                                      static_cast<GLintptr>(entry.buffer.offset),
+                                      static_cast<GLintptr>(offset),
                                       static_cast<GLsizeiptr>(entry.buffer.size));
+                } else if (dynamicOffset > 0) {
+                    glBindBufferRange(GL_SHADER_STORAGE_BUFFER,
+                                      binding,
+                                      glBuffer->id,
+                                      static_cast<GLintptr>(offset),
+                                      static_cast<GLsizeiptr>(glBuffer->size - offset));
                 } else {
                     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, glBuffer->id);
                 }
@@ -355,6 +469,21 @@ void OpenGLCommandList::setScissor(uint32_t first, const ScissorRect* scissors, 
 
     glEnable(GL_SCISSOR_TEST);
     glScissorArrayv(first, static_cast<GLsizei>(count), values.data());
+}
+
+void OpenGLCommandList::pushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void* data)
+{
+    auto* glPipeline = m_device.getPipeline(m_current_pipeline);
+    if (glPipeline == nullptr || data == nullptr) {
+        return;
+    }
+
+    const auto* layout = m_device.getPipelineLayout(glPipeline->layout);
+    if (layout == nullptr || !pushConstantWriteCovered(layout->desc, stages, offset, size)) {
+        return;
+    }
+
+    uploadPushConstantUniforms(glPipeline->program, offset, size, data);
 }
 
 void OpenGLCommandList::resourceBarrier(const TextureBarrier* barriers, uint32_t count)

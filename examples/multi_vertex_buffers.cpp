@@ -1,21 +1,22 @@
-#include "common/win32_gl_surface.h"
 #include "TinyRHI/backend_factory.h"
-
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
+#include "common/win32_gl_surface.h"
 
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdio>
 #include <thread>
 
 using namespace lunalite::rhi;
 
 namespace {
 
-struct Vertex {
-    float position[3];
-    float color[4];
+struct Position {
+    float value[3];
+};
+
+struct Color {
+    float value[4];
 };
 
 constexpr const char* kVertexShader = R"GLSL(
@@ -54,7 +55,7 @@ int main()
     }
 
     tinyrhi_examples::Win32GLSurface surface;
-    if (!surface.create("TinyRHI Indexed Quad", 960, 540, instance->getWindowRequirements())) {
+    if (!surface.create("TinyRHI Multi Vertex Buffers", 960, 540, instance->getWindowRequirements())) {
         std::printf("Failed to create Win32 OpenGL surface.\n");
         return 1;
     }
@@ -68,20 +69,23 @@ int main()
     auto* swapchain = instance->getSwapchain();
     auto& commands = device->getCommandList();
 
-    constexpr std::array<Vertex, 4> vertices = {{
-        {{-0.6f, 0.55f, 0.0f}, {0.95f, 0.8f, 0.25f, 1.0f}},
-        {{-0.6f, -0.55f, 0.0f}, {0.2f, 0.7f, 0.95f, 1.0f}},
-        {{0.6f, -0.55f, 0.0f}, {0.35f, 0.9f, 0.45f, 1.0f}},
-        {{0.6f, 0.55f, 0.0f}, {0.95f, 0.3f, 0.35f, 1.0f}},
+    constexpr std::array<Position, 3> positions = {{
+        {{0.0f, 0.66f, 0.0f}},
+        {{-0.72f, -0.56f, 0.0f}},
+        {{0.72f, -0.56f, 0.0f}},
     }};
-    constexpr std::array<uint16_t, 6> indices = {{0, 1, 2, 0, 2, 3}};
+    constexpr std::array<Color, 3> colors = {{
+        {{0.96f, 0.26f, 0.22f, 1.0f}},
+        {{0.22f, 0.72f, 0.36f, 1.0f}},
+        {{0.22f, 0.46f, 0.98f, 1.0f}},
+    }};
 
-    BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
-        vertices.data());
-    BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(indices), .usage = BufferUsage::Index | BufferUsage::CopyDst},
-        indices.data());
+    BufferHandle positionBuffer = device->createBuffer(
+        BufferDesc{.size = sizeof(positions), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
+        positions.data());
+    BufferHandle colorBuffer = device->createBuffer(
+        BufferDesc{.size = sizeof(colors), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
+        colors.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -94,19 +98,18 @@ int main()
             {
                 VertexBufferLayoutDesc{
                     .binding = 0,
-                    .stride = sizeof(Vertex),
+                    .stride = sizeof(Position),
                     .attributes =
                         {
-                            VertexAttributeDesc{
-                                .location = 0,
-                                .format = VertexFormat::Float3,
-                                .offset = offsetof(Vertex, position),
-                            },
-                            VertexAttributeDesc{
-                                .location = 3,
-                                .format = VertexFormat::Float4,
-                                .offset = offsetof(Vertex, color),
-                            },
+                            VertexAttributeDesc{.location = 0, .format = VertexFormat::Float3, .offset = 0},
+                        },
+                },
+                VertexBufferLayoutDesc{
+                    .binding = 1,
+                    .stride = sizeof(Color),
+                    .attributes =
+                        {
+                            VertexAttributeDesc{.location = 3, .format = VertexFormat::Float4, .offset = 0},
                         },
                 },
             },
@@ -118,9 +121,9 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || indexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 ||
+    if (positionBuffer == 0 || colorBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 ||
         pipeline == 0) {
-        std::printf("Failed to create indexed quad resources.\n");
+        std::printf("Failed to create multi vertex buffer resources.\n");
         instance->shutdown();
         return 1;
     }
@@ -133,7 +136,7 @@ int main()
             .view = swapchain->getCurrentColorTextureView(),
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
-            .clear_color = ClearColor{0.06f, 0.06f, 0.07f, 1.0f},
+            .clear_color = ClearColor{0.045f, 0.05f, 0.06f, 1.0f},
         });
         pass.width = swapchain->getWidth();
         pass.height = swapchain->getHeight();
@@ -141,9 +144,9 @@ int main()
         commands.begin();
         commands.beginRenderPass(pass);
         commands.setPipeline(pipeline);
-        commands.setVertexBuffer(0, vertexBuffer);
-        commands.setIndexBuffer(indexBuffer, IndexFormat::UInt16);
-        commands.drawIndexed(static_cast<uint32_t>(indices.size()));
+        commands.setVertexBuffer(0, positionBuffer);
+        commands.setVertexBuffer(1, colorBuffer);
+        commands.draw(static_cast<uint32_t>(positions.size()));
         commands.endRenderPass();
         commands.end();
 
@@ -155,8 +158,8 @@ int main()
     device->destroyPipelineLayout(layout);
     device->destroyShader(fragmentShader);
     device->destroyShader(vertexShader);
-    device->destroyBuffer(indexBuffer);
-    device->destroyBuffer(vertexBuffer);
+    device->destroyBuffer(colorBuffer);
+    device->destroyBuffer(positionBuffer);
     instance->shutdown();
     return 0;
 }

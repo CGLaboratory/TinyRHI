@@ -53,13 +53,18 @@ public:
     virtual void endRenderPass() = 0;
 
     virtual void setPipeline(PipelineHandle pipeline) = 0;
-    virtual void setBindGroup(uint32_t set, BindGroupHandle group) = 0;
+    virtual void setBindGroup(uint32_t set,
+                              BindGroupHandle group,
+                              const uint32_t* dynamic_offsets = nullptr,
+                              uint32_t dynamic_offset_count = 0) = 0;
 
     virtual void setVertexBuffer(uint32_t slot, BufferHandle buffer, size_t offset = 0) = 0;
     virtual void setIndexBuffer(BufferHandle buffer, IndexFormat format, size_t offset = 0) = 0;
 
     virtual void setViewport(uint32_t first, const Viewport* viewports, uint32_t count) = 0;
     virtual void setScissor(uint32_t first, const ScissorRect* scissors, uint32_t count) = 0;
+
+    virtual void pushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void* data) = 0;
 
     virtual void resourceBarrier(const TextureBarrier* barriers, uint32_t count) = 0;
 
