@@ -294,16 +294,6 @@ void OpenGLCommandList::setIndexBuffer(BufferHandle buffer, IndexFormat format)
     glVertexArrayElementBuffer(glPipeline->vao, glBuffer->id);
 }
 
-void OpenGLCommandList::setUniformBuffer(uint32_t binding, BufferHandle buffer)
-{
-    auto* glBuffer = m_device.getBuffer(buffer);
-    if (glBuffer == nullptr || glBuffer->type != BufferType::UniformBuffer) {
-        return;
-    }
-
-    glBindBufferBase(GL_UNIFORM_BUFFER, binding, glBuffer->id);
-}
-
 void OpenGLCommandList::resourceBarrier(const TextureBarrier* barriers, uint32_t count)
 {
     if (barriers == nullptr || count == 0) {

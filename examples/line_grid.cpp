@@ -2,9 +2,11 @@
 #include "common/win32_gl_surface.h"
 
 #include <chrono>
-#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <thread>
+#include <vector>
 
 using namespace lunalite::rhi;
 
@@ -12,33 +14,31 @@ namespace {
 
 struct Vertex {
     float position[3];
-};
-
-struct UniformData {
     float color[4];
 };
 
 constexpr const char* kVertexShader = R"GLSL(
 #version 450 core
 layout(location = 0) in vec3 inPosition;
+layout(location = 3) in vec4 inColor;
+
+out vec4 vertexColor;
 
 void main()
 {
     gl_Position = vec4(inPosition, 1.0);
+    vertexColor = inColor;
 }
 )GLSL";
 
 constexpr const char* kFragmentShader = R"GLSL(
 #version 450 core
-layout(std140, binding = 0) uniform Params {
-    vec4 uColor;
-};
-
+in vec4 vertexColor;
 out vec4 outColor;
 
 void main()
 {
-    outColor = uColor;
+    outColor = vertexColor;
 }
 )GLSL";
 
@@ -53,7 +53,7 @@ int main()
     }
 
     tinyrhi_examples::Win32GLSurface surface;
-    if (!surface.create("TinyRHI Uniform Triangle", 960, 540, instance->getWindowRequirements())) {
+    if (!surface.create("TinyRHI Line Grid", 960, 540, instance->getWindowRequirements())) {
         std::printf("Failed to create Win32 OpenGL surface.\n");
         return 1;
     }
@@ -67,47 +67,37 @@ int main()
     auto* swapchain = instance->getSwapchain();
     auto& commands = device->getCommandList();
 
-    const Vertex vertices[] = {
-        {{0.0f, 0.65f, 0.0f}},
-        {{-0.65f, -0.55f, 0.0f}},
-        {{0.65f, -0.55f, 0.0f}},
-    };
+    std::vector<Vertex> vertices;
+    vertices.reserve(68);
+    for (int i = -8; i <= 8; ++i) {
+        const float p = static_cast<float>(i) / 8.0f * 0.82f;
+        const float gridColor[4] = {0.34f, 0.37f, 0.42f, 1.0f};
+        const float xAxisColor[4] = {0.95f, 0.34f, 0.28f, 1.0f};
+        const float yAxisColor[4] = {0.24f, 0.58f, 0.95f, 1.0f};
 
-    UniformData params{{0.9f, 0.35f, 0.25f, 1.0f}};
+        const float* horizontalColor = i == 0 ? xAxisColor : gridColor;
+        vertices.push_back(Vertex{{-0.82f, p, 0.0f},
+                                  {horizontalColor[0], horizontalColor[1], horizontalColor[2], horizontalColor[3]}});
+        vertices.push_back(Vertex{{0.82f, p, 0.0f},
+                                  {horizontalColor[0], horizontalColor[1], horizontalColor[2], horizontalColor[3]}});
+
+        const float* verticalColor = i == 0 ? yAxisColor : gridColor;
+        vertices.push_back(Vertex{{p, -0.82f, 0.0f},
+                                  {verticalColor[0], verticalColor[1], verticalColor[2], verticalColor[3]}});
+        vertices.push_back(Vertex{{p, 0.82f, 0.0f},
+                                  {verticalColor[0], verticalColor[1], verticalColor[2], verticalColor[3]}});
+    }
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::VertexBuffer, .usage = BufferUsage::Static, .size = sizeof(vertices)},
-        vertices);
-    BufferHandle uniformBuffer = device->createBuffer(
-        BufferDesc{.type = BufferType::UniformBuffer, .usage = BufferUsage::Dynamic, .size = sizeof(UniformData)},
-        &params);
+        BufferDesc{.type = BufferType::VertexBuffer, .usage = BufferUsage::Static, .size = vertices.size() * sizeof(Vertex)},
+        vertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
-
-    BindGroupLayoutDesc bindGroupLayoutDesc{};
-    bindGroupLayoutDesc.entries.push_back(BindGroupLayoutEntry{
-        .binding = 0,
-        .type = BindingType::UniformBuffer,
-        .stages = shaderStageFlag(ShaderStage::Fragment),
-    });
-    BindGroupLayoutHandle bindGroupLayout = device->createBindGroupLayout(bindGroupLayoutDesc);
-
-    PipelineLayoutDesc pipelineLayoutDesc{};
-    pipelineLayoutDesc.bind_group_layouts.push_back(bindGroupLayout);
-    PipelineLayoutHandle layout = device->createPipelineLayout(pipelineLayoutDesc);
-
-    BindGroupDesc bindGroupDesc{};
-    bindGroupDesc.layout = bindGroupLayout;
-    bindGroupDesc.entries.push_back(BindGroupEntry{
-        .binding = 0,
-        .type = BindingType::UniformBuffer,
-        .buffer = BufferBinding{.buffer = uniformBuffer, .offset = 0, .size = sizeof(UniformData)},
-    });
-    BindGroupHandle bindGroup = device->createBindGroup(bindGroupDesc);
+    PipelineLayoutHandle layout = device->createPipelineLayout(PipelineLayoutDesc{});
 
     PipelineDesc pipelineDesc{};
-    pipelineDesc.topology = PrimitiveTopology::Triangle;
+    pipelineDesc.topology = PrimitiveTopology::Line;
     pipelineDesc.vertex_layout = VertexLayoutDesc{
         .stride = sizeof(Vertex),
         .attributes =
@@ -115,7 +105,12 @@ int main()
                 VertexAttributeDesc{
                     .semantic = VertexAttribute::Position,
                     .format = VertexFormat::Float3,
-                    .offset = 0,
+                    .offset = offsetof(Vertex, position),
+                },
+                VertexAttributeDesc{
+                    .semantic = VertexAttribute::Color,
+                    .format = VertexFormat::Float4,
+                    .offset = offsetof(Vertex, color),
                 },
             },
     };
@@ -126,31 +121,21 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || uniformBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || bindGroupLayout == 0 ||
-        layout == 0 || bindGroup == 0 || pipeline == 0) {
-        std::printf("Failed to create uniform triangle resources.\n");
+    if (vertexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 || pipeline == 0) {
+        std::printf("Failed to create line grid resources.\n");
         instance->shutdown();
         return 1;
     }
 
-    const auto start = std::chrono::steady_clock::now();
-
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
-
-        const auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-        params.color[0] = 0.5f + 0.5f * std::sin(elapsed * 1.7f);
-        params.color[1] = 0.5f + 0.5f * std::sin(elapsed * 1.3f + 2.0f);
-        params.color[2] = 0.5f + 0.5f * std::sin(elapsed * 0.9f + 4.0f);
-        params.color[3] = 1.0f;
-        device->updateBuffer(uniformBuffer, &params, sizeof(params));
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
             .view = swapchain->getCurrentColorTextureView(),
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
-            .clear_color = ClearColor{0.05f, 0.05f, 0.06f, 1.0f},
+            .clear_color = ClearColor{0.045f, 0.048f, 0.055f, 1.0f},
         });
         pass.width = swapchain->getWidth();
         pass.height = swapchain->getHeight();
@@ -158,9 +143,8 @@ int main()
         commands.begin();
         commands.beginRenderPass(pass);
         commands.setPipeline(pipeline);
-        commands.setBindGroup(0, bindGroup);
         commands.setVertexBuffer(0, vertexBuffer);
-        commands.draw(3);
+        commands.draw(static_cast<uint32_t>(vertices.size()));
         commands.endRenderPass();
         commands.end();
 
@@ -169,12 +153,9 @@ int main()
     }
 
     device->destroyPipeline(pipeline);
-    device->destroyBindGroup(bindGroup);
     device->destroyPipelineLayout(layout);
-    device->destroyBindGroupLayout(bindGroupLayout);
     device->destroyShader(fragmentShader);
     device->destroyShader(vertexShader);
-    device->destroyBuffer(uniformBuffer);
     device->destroyBuffer(vertexBuffer);
     instance->shutdown();
     return 0;
