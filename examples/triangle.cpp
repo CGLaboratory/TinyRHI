@@ -111,7 +111,7 @@ int main()
     }
 
     while (surface.pollEvents() && !surface.shouldClose()) {
-        instance->resize(surface.getWidth(), surface.getHeight());
+        swapchain->resize(surface.getWidth(), surface.getHeight());
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{

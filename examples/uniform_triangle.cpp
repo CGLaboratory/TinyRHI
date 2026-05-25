@@ -116,7 +116,7 @@ int main()
     const auto start = std::chrono::steady_clock::now();
 
     while (surface.pollEvents() && !surface.shouldClose()) {
-        instance->resize(surface.getWidth(), surface.getHeight());
+        swapchain->resize(surface.getWidth(), surface.getHeight());
 
         const auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
         params.color[0] = 0.5f + 0.5f * std::sin(elapsed * 1.7f);

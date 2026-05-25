@@ -63,14 +63,6 @@ void OpenGLInstance::shutdown()
     m_surface = nullptr;
 }
 
-void OpenGLInstance::resize(uint32_t width, uint32_t height)
-{
-    glViewport(0, 0, static_cast<int>(width), static_cast<int>(height));
-    if (m_swapchain) {
-        m_swapchain->resize(width, height);
-    }
-}
-
 Device* OpenGLInstance::getDevice()
 {
     return m_device.get();
