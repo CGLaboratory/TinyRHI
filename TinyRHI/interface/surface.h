@@ -5,7 +5,7 @@
 
 namespace lunalite::rhi {
 
-struct NativeSurfaceHandle {
+struct NativeWindowHandle {
     enum class Platform {
         Unknown,
         Win32,
@@ -20,11 +20,13 @@ struct NativeSurfaceHandle {
     void* window{nullptr};
 };
 
+using NativeSurfaceHandle = NativeWindowHandle;
+
 class Surface {
 public:
     virtual ~Surface() = default;
 
-    virtual NativeSurfaceHandle getNativeHandle() const = 0;
+    virtual NativeWindowHandle getNativeHandle() const = 0;
     virtual uint32_t getWidth() const = 0;
     virtual uint32_t getHeight() const = 0;
     virtual void resize(uint32_t width, uint32_t height) = 0;

@@ -45,7 +45,7 @@ public:
     virtual PipelineHandle createPipeline(const PipelineDesc& desc) = 0;
     virtual void destroyPipeline(PipelineHandle pipeline) = 0;
 
-    virtual SwapchainHandle createSwapchain(Surface& surface, const SwapchainDesc& desc) = 0;
+    virtual SwapchainHandle createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc) = 0;
     virtual void destroySwapchain(SwapchainHandle swapchain) = 0;
     virtual Swapchain* getSwapchain(SwapchainHandle swapchain) = 0;
 

@@ -8,7 +8,7 @@ class OpenGLDevice;
 
 class OpenGLSwapchain final : public Swapchain {
 public:
-    OpenGLSwapchain(OpenGLDevice& device, SwapchainHandle handle, Surface& surface, const SwapchainDesc& desc);
+    OpenGLSwapchain(OpenGLDevice& device, SwapchainHandle handle, SurfaceHandle surface, const SwapchainDesc& desc);
     ~OpenGLSwapchain() override;
 
     OpenGLSwapchain(const OpenGLSwapchain&) = delete;
@@ -29,7 +29,7 @@ public:
 private:
     OpenGLDevice& m_device;
     SwapchainHandle m_handle{0};
-    Surface& m_surface;
+    SurfaceHandle m_surface{0};
     SwapchainDesc m_desc{};
     OpenGLNativeSwapchain m_native{};
     TextureViewHandle m_color_view{0};

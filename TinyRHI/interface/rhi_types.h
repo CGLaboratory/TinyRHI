@@ -14,6 +14,7 @@ using SamplerHandle = uint32_t;
 using BindGroupLayoutHandle = uint32_t;
 using BindGroupHandle = uint32_t;
 using SwapchainHandle = uint32_t;
+using SurfaceHandle = uint32_t;
 
 enum class BackendType {
     OpenGL,
@@ -21,5 +22,8 @@ enum class BackendType {
     D3D12,
     Metal
 };
+
+struct NativeWindowHandle;
+using NativeSurfaceHandle = NativeWindowHandle;
 
 } // namespace lunalite::rhi

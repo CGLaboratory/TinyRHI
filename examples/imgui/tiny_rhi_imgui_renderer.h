@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TinyRHI/interface/device.h"
+#include "TinyRHI/interface/instance.h"
 
 #include <imgui.h>
 
@@ -18,6 +19,7 @@ public:
     TinyRHIImGuiRenderer& operator=(const TinyRHIImGuiRenderer&) = delete;
 
     bool init(lunalite::rhi::Device& device);
+    void setSurfaceOwner(lunalite::rhi::Instance& instance);
     void shutdown();
     void render(ImDrawData* draw_data, lunalite::rhi::CommandList& commands);
 
@@ -44,6 +46,7 @@ private:
     static void swapViewportBuffersCallback(ImGuiViewport* viewport, void* render_arg);
 
     lunalite::rhi::Device* m_device{nullptr};
+    lunalite::rhi::Instance* m_instance{nullptr};
     lunalite::rhi::BufferHandle m_vertex_buffer{0};
     lunalite::rhi::BufferHandle m_index_buffer{0};
     size_t m_vertex_buffer_size{0};

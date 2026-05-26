@@ -1,7 +1,5 @@
 #include "tiny_rhi_imgui_renderer.h"
 
-#include "imgui_viewport_surface.h"
-
 #include <algorithm>
 #include <cstdio>
 #include <cstdint>
@@ -57,11 +55,7 @@ ImTextureID textureIdFromBindGroup(BindGroupHandle bind_group)
 }
 
 struct ViewportRenderData {
-    explicit ViewportRenderData(void* window, uint32_t width, uint32_t height)
-        : surface(window, width, height)
-    {}
-
-    ImGuiViewportSurface surface;
+    SurfaceHandle surface{0};
     SwapchainHandle swapchain_handle{0};
     Swapchain* swapchain{nullptr};
 };
@@ -110,6 +104,11 @@ bool TinyRHIImGuiRenderer::init(Device& device)
     return true;
 }
 
+void TinyRHIImGuiRenderer::setSurfaceOwner(Instance& instance)
+{
+    m_instance = &instance;
+}
+
 void TinyRHIImGuiRenderer::shutdown()
 {
     if (ImGui::GetCurrentContext() != nullptr) {
@@ -122,6 +121,7 @@ void TinyRHIImGuiRenderer::shutdown()
     }
 
     if (m_device == nullptr) {
+        m_instance = nullptr;
         return;
     }
 
@@ -154,6 +154,7 @@ void TinyRHIImGuiRenderer::shutdown()
     }
 
     m_device = nullptr;
+    m_instance = nullptr;
 }
 
 void TinyRHIImGuiRenderer::render(ImDrawData* draw_data, CommandList& commands)
@@ -286,7 +287,7 @@ void TinyRHIImGuiRenderer::shutdownViewportSupport()
 
 void TinyRHIImGuiRenderer::createViewportWindow(ImGuiViewport* viewport)
 {
-    if (m_device == nullptr || viewport == nullptr || viewport->RendererUserData != nullptr) {
+    if (m_device == nullptr || m_instance == nullptr || viewport == nullptr || viewport->RendererUserData != nullptr) {
         return;
     }
 
@@ -296,10 +297,20 @@ void TinyRHIImGuiRenderer::createViewportWindow(ImGuiViewport* viewport)
         return;
     }
 
-    auto* data = IM_NEW(ViewportRenderData)(
-        window,
-        viewportDimension(viewport->Size.x),
-        viewportDimension(viewport->Size.y));
+    auto* data = IM_NEW(ViewportRenderData)();
+    NativeWindowHandle nativeWindow{
+        .platform = NativeWindowHandle::Platform::Win32,
+        .display = nullptr,
+        .window = window,
+    };
+    data->surface = m_instance->createSurface(nativeWindow);
+    auto* surface = m_instance->getSurface(data->surface);
+    if (surface == nullptr) {
+        std::printf("TinyRHI ImGui renderer failed to create viewport surface.\n");
+        IM_DELETE(data);
+        return;
+    }
+    surface->resize(viewportDimension(viewport->Size.x), viewportDimension(viewport->Size.y));
 
     SwapchainDesc desc{};
     desc.enable_depth_stencil = false;
@@ -307,6 +318,7 @@ void TinyRHIImGuiRenderer::createViewportWindow(ImGuiViewport* viewport)
     data->swapchain = m_device->getSwapchain(data->swapchain_handle);
     if (data->swapchain == nullptr) {
         std::printf("TinyRHI ImGui renderer failed to create viewport swapchain.\n");
+        m_instance->destroySurface(data->surface);
         IM_DELETE(data);
         return;
     }
@@ -321,8 +333,12 @@ void TinyRHIImGuiRenderer::destroyViewportWindow(ImGuiViewport* viewport)
         if (m_device != nullptr && data->swapchain_handle != 0) {
             m_device->destroySwapchain(data->swapchain_handle);
         }
+        if (m_instance != nullptr && data->surface != 0) {
+            m_instance->destroySurface(data->surface);
+        }
         data->swapchain = nullptr;
         data->swapchain_handle = 0;
+        data->surface = 0;
         IM_DELETE(data);
     }
 
@@ -340,7 +356,11 @@ void TinyRHIImGuiRenderer::setViewportWindowSize(ImGuiViewport* viewport, ImVec2
 
     const uint32_t width = viewportDimension(size.x);
     const uint32_t height = viewportDimension(size.y);
-    data->surface.resize(width, height);
+    if (m_instance != nullptr) {
+        if (auto* surface = m_instance->getSurface(data->surface)) {
+            surface->resize(width, height);
+        }
+    }
     data->swapchain->resize(width, height);
 }
 
@@ -353,7 +373,11 @@ void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
 
     const uint32_t width = viewportDimension(viewport->Size.x);
     const uint32_t height = viewportDimension(viewport->Size.y);
-    data->surface.resize(width, height);
+    if (m_instance != nullptr) {
+        if (auto* surface = m_instance->getSurface(data->surface)) {
+            surface->resize(width, height);
+        }
+    }
     data->swapchain->resize(width, height);
 
     RenderPassBeginInfo pass{};

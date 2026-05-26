@@ -8,7 +8,7 @@ set(TINYRHI_EXAMPLES_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 function(tinyrhi_add_example target)
     add_executable(${target}
         ${ARGN}
-        ${TINYRHI_EXAMPLES_ROOT}/common/win32_surface.cpp
+        ${TINYRHI_EXAMPLES_ROOT}/common/win32_window.cpp
     )
 
     target_link_libraries(${target}

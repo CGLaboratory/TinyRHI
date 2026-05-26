@@ -6,6 +6,7 @@
 #include <cstddef>
 
 #include <glad/glad.h>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -85,7 +86,9 @@ struct OpenGLFramebuffer {
 
 class OpenGLDevice final : public Device {
 public:
-    OpenGLDevice();
+    using SurfaceResolver = std::function<Surface*(SurfaceHandle)>;
+
+    explicit OpenGLDevice(SurfaceResolver surface_resolver = {});
     ~OpenGLDevice() override;
 
     BufferHandle createBuffer(const BufferDesc& desc, const void* data) override;
@@ -118,7 +121,7 @@ public:
     PipelineHandle createPipeline(const PipelineDesc& desc) override;
     void destroyPipeline(PipelineHandle pipeline) override;
 
-    SwapchainHandle createSwapchain(Surface& surface, const SwapchainDesc& desc) override;
+    SwapchainHandle createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc) override;
     void destroySwapchain(SwapchainHandle swapchain) override;
     Swapchain* getSwapchain(SwapchainHandle swapchain) override;
 
@@ -142,10 +145,12 @@ public:
     bool makeAnySwapchainCurrent();
     void releaseContext();
     void releaseNativeSwapchain(OpenGLNativeSwapchain& swapchain);
+    Surface* getSurface(SurfaceHandle handle);
 
 private:
     OpenGLSwapchain* getOpenGLSwapchain(SwapchainHandle handle);
 
+    SurfaceResolver m_surface_resolver;
     std::vector<std::unique_ptr<OpenGLSwapchain>> m_swapchains;
     std::vector<OpenGLBuffer> m_buffers;
     std::vector<OpenGLTexture> m_textures;

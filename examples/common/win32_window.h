@@ -9,13 +9,13 @@
 
 namespace tinyrhi_examples {
 
-class Win32Surface final : public lunalite::rhi::Surface {
+class Win32Window final {
 public:
-    Win32Surface() = default;
-    ~Win32Surface() override;
+    Win32Window() = default;
+    ~Win32Window();
 
-    Win32Surface(const Win32Surface&) = delete;
-    Win32Surface& operator=(const Win32Surface&) = delete;
+    Win32Window(const Win32Window&) = delete;
+    Win32Window& operator=(const Win32Window&) = delete;
 
     bool create(const char* title, uint32_t width, uint32_t height);
     void destroy();
@@ -24,10 +24,9 @@ public:
     bool shouldClose() const;
     void requestClose();
 
-    lunalite::rhi::NativeSurfaceHandle getNativeHandle() const override;
-    uint32_t getWidth() const override;
-    uint32_t getHeight() const override;
-    void resize(uint32_t width, uint32_t height) override;
+    lunalite::rhi::NativeWindowHandle nativeWindow() const;
+    uint32_t getWidth() const;
+    uint32_t getHeight() const;
 
     HWND hwnd() const;
 

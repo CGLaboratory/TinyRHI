@@ -1,4 +1,4 @@
-#include "common/win32_surface.h"
+#include "common/win32_window.h"
 
 #include <cstdio>
 
@@ -36,12 +36,12 @@ void centerWindow(HWND hwnd)
 
 } // namespace
 
-Win32Surface::~Win32Surface()
+Win32Window::~Win32Window()
 {
     destroy();
 }
 
-bool Win32Surface::create(const char* title, uint32_t width, uint32_t height)
+bool Win32Window::create(const char* title, uint32_t width, uint32_t height)
 {
     if (!createWindow(title, width, height)) {
         destroy();
@@ -53,7 +53,7 @@ bool Win32Surface::create(const char* title, uint32_t width, uint32_t height)
     return true;
 }
 
-void Win32Surface::destroy()
+void Win32Window::destroy()
 {
     if (m_hwnd != nullptr) {
         DestroyWindow(m_hwnd);
@@ -65,7 +65,7 @@ void Win32Surface::destroy()
     m_should_close = false;
 }
 
-bool Win32Surface::pollEvents()
+bool Win32Window::pollEvents()
 {
     MSG msg{};
     while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -80,49 +80,43 @@ bool Win32Surface::pollEvents()
     return !m_should_close;
 }
 
-bool Win32Surface::shouldClose() const
+bool Win32Window::shouldClose() const
 {
     return m_should_close;
 }
 
-void Win32Surface::requestClose()
+void Win32Window::requestClose()
 {
     m_should_close = true;
 }
 
-lunalite::rhi::NativeSurfaceHandle Win32Surface::getNativeHandle() const
+lunalite::rhi::NativeWindowHandle Win32Window::nativeWindow() const
 {
-    return lunalite::rhi::NativeSurfaceHandle{
-        .platform = lunalite::rhi::NativeSurfaceHandle::Platform::Win32,
+    return lunalite::rhi::NativeWindowHandle{
+        .platform = lunalite::rhi::NativeWindowHandle::Platform::Win32,
         .display = nullptr,
         .window = m_hwnd,
     };
 }
 
-uint32_t Win32Surface::getWidth() const
+uint32_t Win32Window::getWidth() const
 {
     return m_width;
 }
 
-uint32_t Win32Surface::getHeight() const
+uint32_t Win32Window::getHeight() const
 {
     return m_height;
 }
 
-void Win32Surface::resize(uint32_t width, uint32_t height)
-{
-    m_width = width;
-    m_height = height;
-}
-
-HWND Win32Surface::hwnd() const
+HWND Win32Window::hwnd() const
 {
     return m_hwnd;
 }
 
-LRESULT CALLBACK Win32Surface::windowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
+LRESULT CALLBACK Win32Window::windowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
-    auto* surface = reinterpret_cast<Win32Surface*>(GetWindowLongPtrA(hwnd, GWLP_USERDATA));
+    auto* window = reinterpret_cast<Win32Window*>(GetWindowLongPtrA(hwnd, GWLP_USERDATA));
 
     switch (message) {
         case WM_NCCREATE: {
@@ -131,15 +125,15 @@ LRESULT CALLBACK Win32Surface::windowProc(HWND hwnd, UINT message, WPARAM wparam
             return TRUE;
         }
         case WM_CLOSE:
-            if (surface != nullptr) {
-                surface->requestClose();
+            if (window != nullptr) {
+                window->requestClose();
             }
             return 0;
         case WM_SIZE:
-            if (surface != nullptr) {
+            if (window != nullptr) {
                 const auto width = static_cast<uint32_t>(LOWORD(lparam));
                 const auto height = static_cast<uint32_t>(HIWORD(lparam));
-                surface->handleResize(width, height);
+                window->handleResize(width, height);
             }
             return 0;
         default:
@@ -147,14 +141,14 @@ LRESULT CALLBACK Win32Surface::windowProc(HWND hwnd, UINT message, WPARAM wparam
     }
 }
 
-bool Win32Surface::createWindow(const char* title, uint32_t width, uint32_t height)
+bool Win32Window::createWindow(const char* title, uint32_t width, uint32_t height)
 {
     m_instance = GetModuleHandleA(nullptr);
 
     WNDCLASSEXA wc{};
     wc.cbSize = sizeof(wc);
     wc.style = CS_OWNDC;
-    wc.lpfnWndProc = &Win32Surface::windowProc;
+    wc.lpfnWndProc = &Win32Window::windowProc;
     wc.hInstance = m_instance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = kWindowClassName;
@@ -192,7 +186,7 @@ bool Win32Surface::createWindow(const char* title, uint32_t width, uint32_t heig
     return true;
 }
 
-void Win32Surface::handleResize(uint32_t width, uint32_t height)
+void Win32Window::handleResize(uint32_t width, uint32_t height)
 {
     if (width == 0 || height == 0) {
         return;

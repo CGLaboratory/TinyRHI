@@ -6,8 +6,12 @@
 
 namespace lunalite::rhi {
 
-SwapchainHandle OpenGLDevice::createSwapchain(Surface& surface, const SwapchainDesc& desc)
+SwapchainHandle OpenGLDevice::createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc)
 {
+    if (getSurface(surface) == nullptr) {
+        return 0;
+    }
+
     SwapchainHandle handle = 0;
     for (size_t i = 0; i < m_swapchains.size(); ++i) {
         if (m_swapchains[i] == nullptr) {
@@ -95,7 +99,7 @@ void OpenGLDevice::releaseNativeSwapchain(OpenGLNativeSwapchain& swapchain)
 
 OpenGLSwapchain::OpenGLSwapchain(OpenGLDevice& device,
                                  SwapchainHandle handle,
-                                 Surface& surface,
+                                 SurfaceHandle surface,
                                  const SwapchainDesc& desc)
     : m_device(device),
       m_handle(handle),
@@ -120,7 +124,12 @@ OpenGLSwapchain::~OpenGLSwapchain()
 
 bool OpenGLSwapchain::initialize()
 {
-    if (!createOpenGLNativeSwapchain(m_surface.getNativeHandle(), m_native)) {
+    auto* surface = m_device.getSurface(m_surface);
+    if (surface == nullptr) {
+        return false;
+    }
+
+    if (!createOpenGLNativeSwapchain(surface->getNativeHandle(), m_native)) {
         return false;
     }
 
@@ -133,7 +142,7 @@ bool OpenGLSwapchain::initialize()
         m_depth_stencil_view = m_device.createSwapchainTextureView(m_desc.depth_stencil_format, m_handle);
     }
 
-    resize(m_surface.getWidth(), m_surface.getHeight());
+    resize(surface->getWidth(), surface->getHeight());
     return true;
 }
 

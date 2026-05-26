@@ -3,6 +3,8 @@
 #include "gl_convert.h"
 #include "swapchain.h"
 
+#include <utility>
+
 namespace lunalite::rhi {
 
 namespace {
@@ -136,8 +138,9 @@ bool pushConstantRangesValid(const std::vector<PushConstantRange>& ranges)
 }
 } // namespace
 
-OpenGLDevice::OpenGLDevice()
-    : m_command_list(std::make_unique<OpenGLCommandList>(*this))
+OpenGLDevice::OpenGLDevice(SurfaceResolver surface_resolver)
+    : m_surface_resolver(std::move(surface_resolver)),
+      m_command_list(std::make_unique<OpenGLCommandList>(*this))
 {}
 
 OpenGLDevice::~OpenGLDevice()
@@ -182,6 +185,11 @@ OpenGLDevice::~OpenGLDevice()
 CommandList& OpenGLDevice::getCommandList()
 {
     return *m_command_list;
+}
+
+Surface* OpenGLDevice::getSurface(SurfaceHandle handle)
+{
+    return m_surface_resolver ? m_surface_resolver(handle) : nullptr;
 }
 
 SamplerHandle OpenGLDevice::createSampler(const SamplerDesc& desc)

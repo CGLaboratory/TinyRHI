@@ -7,6 +7,7 @@ add_library(TinyRHI STATIC
     opengl/instance.cpp
     opengl/pipeline.cpp
     opengl/shader.cpp
+    opengl/surface.cpp
     opengl/swapchain.cpp
     opengl/texture.cpp
     opengl/wgl_swapchain_win32.cpp

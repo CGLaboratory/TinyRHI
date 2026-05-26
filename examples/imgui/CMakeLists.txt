@@ -2,7 +2,6 @@ set(IMGUI_DIR ${TINYRHI_EXAMPLES_ROOT}/dependences/imgui)
 
 tinyrhi_add_example(tinyrhi_imgui
     main.cpp
-    imgui_viewport_surface.cpp
     imgui_sample_app.cpp
     tiny_rhi_imgui_renderer.cpp
     win32_imgui_platform.cpp

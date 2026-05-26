@@ -3,7 +3,7 @@
 #include "win32_imgui_platform.h"
 
 #include "TinyRHI/backend_factory.h"
-#include "common/win32_surface.h"
+#include "common/win32_window.h"
 
 #include <imgui.h>
 
@@ -22,7 +22,7 @@ int main()
         return 1;
     }
 
-    tinyrhi_examples::Win32Surface surface;
+    tinyrhi_examples::Win32Window surface;
     if (!surface.create("TinyRHI ImGui", 1280, 720)) {
         std::printf("Failed to create Win32 surface.\n");
         return 1;
@@ -67,9 +67,11 @@ int main()
         return 1;
     }
 
-    const SwapchainHandle swapchainHandle = device->createSwapchain(surface, SwapchainDesc{});
+    const SurfaceHandle surfaceHandle = instance->createSurface(surface.nativeWindow());
+    const SwapchainHandle swapchainHandle = device->createSwapchain(surfaceHandle, SwapchainDesc{});
     auto* swapchain = device->getSwapchain(swapchainHandle);
-    if (swapchain == nullptr || !renderer.init(*device)) {
+    renderer.setSurfaceOwner(*instance);
+    if (surfaceHandle == 0 || swapchain == nullptr || !renderer.init(*device)) {
         std::printf("Failed to initialize ImGui TinyRHI renderer backend.\n");
         renderer.shutdown();
         platform.shutdown();

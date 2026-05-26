@@ -1,5 +1,5 @@
 #include "TinyRHI/backend_factory.h"
-#include "common/win32_surface.h"
+#include "common/win32_window.h"
 
 #include <chrono>
 #include <cstdio>
@@ -15,7 +15,7 @@ int main()
         return 1;
     }
 
-    tinyrhi_examples::Win32Surface surface;
+    tinyrhi_examples::Win32Window surface;
     if (!surface.create("TinyRHI Clear Window", 960, 540)) {
         std::printf("Failed to create Win32 surface.\n");
         return 1;
@@ -27,7 +27,8 @@ int main()
     }
 
     auto* device = instance->getDevice();
-    const SwapchainHandle swapchainHandle = device->createSwapchain(surface, SwapchainDesc{});
+    const SurfaceHandle surfaceHandle = instance->createSurface(surface.nativeWindow());
+    const SwapchainHandle swapchainHandle = device->createSwapchain(surfaceHandle, SwapchainDesc{});
     auto* swapchain = device->getSwapchain(swapchainHandle);
     if (swapchain == nullptr) {
         std::printf("Failed to create swapchain.\n");
