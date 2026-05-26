@@ -1,14 +1,20 @@
 #pragma once
+#include "../interface/surface.h"
 #include "../interface/swapchain.h"
+#include "native_swapchain.h"
 
 namespace lunalite::rhi {
 class OpenGLDevice;
-class Surface;
 
 class OpenGLSwapchain final : public Swapchain {
 public:
-    OpenGLSwapchain(OpenGLDevice& device, Surface& surface);
-    ~OpenGLSwapchain() override = default;
+    OpenGLSwapchain(OpenGLDevice& device, SwapchainHandle handle, Surface& surface, const SwapchainDesc& desc);
+    ~OpenGLSwapchain() override;
+
+    OpenGLSwapchain(const OpenGLSwapchain&) = delete;
+    OpenGLSwapchain& operator=(const OpenGLSwapchain&) = delete;
+
+    bool initialize();
 
     TextureViewHandle getCurrentColorTextureView() const override;
     TextureViewHandle getDepthStencilTextureView() const override;
@@ -17,9 +23,15 @@ public:
     void resize(uint32_t width, uint32_t height) override;
     void present() override;
 
+    SwapchainHandle handle() const;
+    OpenGLNativeSwapchain& nativeSwapchain();
+
 private:
     OpenGLDevice& m_device;
+    SwapchainHandle m_handle{0};
     Surface& m_surface;
+    SwapchainDesc m_desc{};
+    OpenGLNativeSwapchain m_native{};
     TextureViewHandle m_color_view{0};
     TextureViewHandle m_depth_stencil_view{0};
     uint32_t m_width{0};

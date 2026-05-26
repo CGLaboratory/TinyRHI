@@ -1,6 +1,7 @@
 #pragma once
 #include "../interface/device.h"
 #include "../interface/rhi_types.h"
+#include "native_swapchain.h"
 
 #include <cstddef>
 
@@ -11,6 +12,7 @@
 namespace lunalite::rhi {
 
 class OpenGLCommandList;
+class OpenGLSwapchain;
 
 struct OpenGLBuffer {
     GLuint id{0};
@@ -39,6 +41,7 @@ struct OpenGLTexture {
     GLuint id{0};
     TextureDesc desc{};
     bool is_swapchain_backbuffer{false};
+    SwapchainHandle swapchain{0};
 };
 
 struct OpenGLTextureView {
@@ -115,6 +118,10 @@ public:
     PipelineHandle createPipeline(const PipelineDesc& desc) override;
     void destroyPipeline(PipelineHandle pipeline) override;
 
+    SwapchainHandle createSwapchain(Surface& surface, const SwapchainDesc& desc) override;
+    void destroySwapchain(SwapchainHandle swapchain) override;
+    Swapchain* getSwapchain(SwapchainHandle swapchain) override;
+
     CommandList& getCommandList() override;
 
     OpenGLBuffer* getBuffer(BufferHandle handle);
@@ -128,9 +135,18 @@ public:
     OpenGLPipeline* getPipeline(PipelineHandle handle);
 
     GLuint getFramebuffer(const RenderPassBeginInfo& info);
-    TextureViewHandle createSwapchainTextureView(TextureFormat format);
+    TextureViewHandle createSwapchainTextureView(TextureFormat format, SwapchainHandle swapchain);
+    void resizeSwapchainTextureView(TextureViewHandle view, uint32_t width, uint32_t height);
+    bool ensureContextForSwapchain(OpenGLSwapchain& swapchain, bool vsync);
+    bool makeSwapchainCurrent(SwapchainHandle swapchain);
+    bool makeAnySwapchainCurrent();
+    void releaseContext();
+    void releaseNativeSwapchain(OpenGLNativeSwapchain& swapchain);
 
 private:
+    OpenGLSwapchain* getOpenGLSwapchain(SwapchainHandle handle);
+
+    std::vector<std::unique_ptr<OpenGLSwapchain>> m_swapchains;
     std::vector<OpenGLBuffer> m_buffers;
     std::vector<OpenGLTexture> m_textures;
     std::vector<OpenGLTextureView> m_texture_views;
@@ -142,6 +158,7 @@ private:
     std::vector<OpenGLPipeline> m_pipelines;
     std::vector<OpenGLFramebuffer> m_framebuffers;
     std::unique_ptr<OpenGLCommandList> m_command_list;
+    OpenGLNativeContext m_native_context{};
 };
 
 } // namespace lunalite::rhi

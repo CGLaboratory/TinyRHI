@@ -1,5 +1,5 @@
 #include "TinyRHI/backend_factory.h"
-#include "common/win32_gl_surface.h"
+#include "common/win32_surface.h"
 
 #include <chrono>
 #include <cstdio>
@@ -15,19 +15,27 @@ int main()
         return 1;
     }
 
-    tinyrhi_examples::Win32GLSurface surface;
-    if (!surface.create("TinyRHI Clear Window", 960, 540, instance->getWindowRequirements())) {
-        std::printf("Failed to create Win32 OpenGL surface.\n");
+    tinyrhi_examples::Win32Surface surface;
+    if (!surface.create("TinyRHI Clear Window", 960, 540)) {
+        std::printf("Failed to create Win32 surface.\n");
         return 1;
     }
 
-    if (!instance->init(surface)) {
+    if (!instance->init()) {
         std::printf("Failed to initialize TinyRHI instance.\n");
         return 1;
     }
 
-    auto* swapchain = instance->getSwapchain();
-    auto& commands = instance->getDevice()->getCommandList();
+    auto* device = instance->getDevice();
+    const SwapchainHandle swapchainHandle = device->createSwapchain(surface, SwapchainDesc{});
+    auto* swapchain = device->getSwapchain(swapchainHandle);
+    if (swapchain == nullptr) {
+        std::printf("Failed to create swapchain.\n");
+        instance->shutdown();
+        return 1;
+    }
+
+    auto& commands = device->getCommandList();
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());

@@ -9,6 +9,7 @@ add_library(TinyRHI STATIC
     opengl/shader.cpp
     opengl/swapchain.cpp
     opengl/texture.cpp
+    opengl/wgl_swapchain_win32.cpp
 )
 
 add_library(TinyRHI::TinyRHI ALIAS TinyRHI)
@@ -22,6 +23,10 @@ target_link_libraries(TinyRHI
     PUBLIC
         glad::glad
 )
+
+if(WIN32)
+    target_link_libraries(TinyRHI PUBLIC opengl32)
+endif()
 
 target_compile_features(TinyRHI PUBLIC cxx_std_20)
 

@@ -8,13 +8,13 @@ namespace {
 
 class TestSurface final : public Surface {
 public:
-    explicit TestSurface(SurfaceDesc desc)
-        : m_desc(desc)
+    explicit TestSurface(NativeSurfaceHandle native)
+        : m_native(native)
     {}
 
-    const SurfaceDesc& getSurfaceDesc() const override
+    NativeSurfaceHandle getNativeHandle() const override
     {
-        return m_desc;
+        return m_native;
     }
 
     uint32_t getWidth() const override
@@ -34,7 +34,7 @@ public:
     }
 
 private:
-    SurfaceDesc m_desc{};
+    NativeSurfaceHandle m_native{};
     uint32_t m_width{640};
     uint32_t m_height{480};
 };
@@ -48,11 +48,9 @@ TINYRHI_TEST_CASE("backend factory creates the OpenGL backend")
     TINYRHI_REQUIRE(instance != nullptr);
     TINYRHI_CHECK(instance->getBackendType() == BackendType::OpenGL);
 
-    const WindowRequirements requirements = instance->getWindowRequirements();
-    TINYRHI_CHECK(requirements.backend == BackendType::OpenGL);
-    TINYRHI_CHECK(requirements.glMajor == 4);
-    TINYRHI_CHECK(requirements.glMinor == 5);
-    TINYRHI_CHECK(requirements.gl_core_profile);
+    TINYRHI_CHECK(instance->init());
+    TINYRHI_CHECK(instance->getDevice() != nullptr);
+    instance->shutdown();
 }
 
 TINYRHI_TEST_CASE("backend factory rejects unavailable backends")
@@ -62,32 +60,16 @@ TINYRHI_TEST_CASE("backend factory rejects unavailable backends")
     TINYRHI_CHECK(BackendFactory::createInstance(BackendType::Metal) == nullptr);
 }
 
-TINYRHI_TEST_CASE("OpenGL instance rejects non OpenGL surfaces")
+TINYRHI_TEST_CASE("OpenGL device rejects invalid swapchain surfaces")
 {
     auto instance = BackendFactory::createInstance(BackendType::OpenGL);
     TINYRHI_REQUIRE(instance != nullptr);
+    TINYRHI_REQUIRE(instance->init());
 
-    SurfaceDesc desc{};
-    desc.backend = BackendType::Vulkan;
-    desc.kind = SurfaceKind::NativeWindow;
-
-    TestSurface surface(desc);
-    TINYRHI_CHECK(!instance->init(surface));
-    TINYRHI_CHECK(instance->getDevice() == nullptr);
-    TINYRHI_CHECK(instance->getSwapchain() == nullptr);
-}
-
-TINYRHI_TEST_CASE("OpenGL instance rejects OpenGL surfaces without required callbacks")
-{
-    auto instance = BackendFactory::createInstance(BackendType::OpenGL);
-    TINYRHI_REQUIRE(instance != nullptr);
-
-    SurfaceDesc desc{};
-    desc.backend = BackendType::OpenGL;
-    desc.kind = SurfaceKind::OpenGLContext;
-
-    TestSurface surface(desc);
-    TINYRHI_CHECK(!instance->init(surface));
-    TINYRHI_CHECK(instance->getDevice() == nullptr);
-    TINYRHI_CHECK(instance->getSwapchain() == nullptr);
+    TestSurface surface(NativeSurfaceHandle{});
+    auto* device = instance->getDevice();
+    TINYRHI_REQUIRE(device != nullptr);
+    TINYRHI_CHECK(device->createSwapchain(surface, SwapchainDesc{}) == 0);
+    TINYRHI_CHECK(device->getSwapchain(1) == nullptr);
+    instance->shutdown();
 }

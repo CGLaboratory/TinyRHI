@@ -5,6 +5,13 @@
 #include <cstdint>
 
 namespace lunalite::rhi {
+struct SwapchainDesc {
+    TextureFormat color_format{TextureFormat::RGBA8};
+    TextureFormat depth_stencil_format{TextureFormat::Depth24Stencil8};
+    bool enable_depth_stencil{true};
+    bool vsync{true};
+};
+
 class Swapchain {
 public:
     virtual ~Swapchain() = default;

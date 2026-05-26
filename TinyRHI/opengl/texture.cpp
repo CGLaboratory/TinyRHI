@@ -40,7 +40,7 @@ TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
     glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    m_textures.push_back(OpenGLTexture{.id = texture, .desc = desc, .is_swapchain_backbuffer = false});
+    m_textures.push_back(OpenGLTexture{.id = texture, .desc = desc, .is_swapchain_backbuffer = false, .swapchain = 0});
     return static_cast<TextureHandle>(m_textures.size());
 }
 
@@ -119,7 +119,7 @@ void OpenGLDevice::destroyTextureView(TextureViewHandle view)
     glView->texture = 0;
 }
 
-TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format)
+TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format, SwapchainHandle swapchain)
 {
     const auto usage = isDepthFormat(format) ? TextureUsage::DepthStencil : TextureUsage::RenderTarget;
 
@@ -127,6 +127,7 @@ TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format)
         .id = 0,
         .desc = TextureDesc{.width = 1, .height = 1, .format = format, .usage = usage},
         .is_swapchain_backbuffer = true,
+        .swapchain = swapchain,
     });
 
     const auto texture = static_cast<TextureHandle>(m_textures.size());
@@ -136,6 +137,18 @@ TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format)
         .aspect = isDepthFormat(format) ? TextureAspect::DepthStencil : TextureAspect::Color,
     });
     return static_cast<TextureViewHandle>(m_texture_views.size());
+}
+
+void OpenGLDevice::resizeSwapchainTextureView(TextureViewHandle view, uint32_t width, uint32_t height)
+{
+    auto* glView = getTextureView(view);
+    auto* glTexture = glView ? getTexture(glView->texture) : nullptr;
+    if (glTexture == nullptr || !glTexture->is_swapchain_backbuffer) {
+        return;
+    }
+
+    glTexture->desc.width = width;
+    glTexture->desc.height = height;
 }
 
 } // namespace lunalite::rhi

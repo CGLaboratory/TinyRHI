@@ -6,6 +6,10 @@ namespace tinyrhi_examples {
 
 void ImGuiSampleApp::draw()
 {
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    }
+
     ImGui::ShowDemoWindow(&m_show_demo_window);
 
     ImGui::Begin("TinyRHI ImGui");

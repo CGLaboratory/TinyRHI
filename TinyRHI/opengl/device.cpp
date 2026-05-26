@@ -1,6 +1,7 @@
 #include "device.h"
 #include "command_list.h"
 #include "gl_convert.h"
+#include "swapchain.h"
 
 namespace lunalite::rhi {
 
@@ -141,6 +142,10 @@ OpenGLDevice::OpenGLDevice()
 
 OpenGLDevice::~OpenGLDevice()
 {
+    if (m_native_context.context != nullptr) {
+        makeAnySwapchainCurrent();
+    }
+
     m_command_list.reset();
 
     for (auto& pipeline : m_pipelines) {
@@ -169,6 +174,9 @@ OpenGLDevice::~OpenGLDevice()
             glDeleteTextures(1, &texture.id);
         }
     }
+
+    releaseContext();
+    m_swapchains.clear();
 }
 
 CommandList& OpenGLDevice::getCommandList()

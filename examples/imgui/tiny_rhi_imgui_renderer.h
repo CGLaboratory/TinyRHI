@@ -25,9 +25,23 @@ private:
     bool createStaticResources();
     bool createFontTexture();
     bool ensureBuffers(int vertex_count, int index_count);
+    void initViewportSupport();
+    void shutdownViewportSupport();
+    void createViewportWindow(ImGuiViewport* viewport);
+    void destroyViewportWindow(ImGuiViewport* viewport);
+    void setViewportWindowSize(ImGuiViewport* viewport, ImVec2 size);
+    void renderViewportWindow(ImGuiViewport* viewport);
+    void swapViewportBuffers(ImGuiViewport* viewport);
     void destroyBuffers();
     void destroyFontTexture();
     lunalite::rhi::BindGroupHandle bindGroupFromTextureId(ImTextureID texture_id) const;
+
+    static TinyRHIImGuiRenderer* currentRenderer();
+    static void createViewportWindowCallback(ImGuiViewport* viewport);
+    static void destroyViewportWindowCallback(ImGuiViewport* viewport);
+    static void setViewportWindowSizeCallback(ImGuiViewport* viewport, ImVec2 size);
+    static void renderViewportWindowCallback(ImGuiViewport* viewport, void* render_arg);
+    static void swapViewportBuffersCallback(ImGuiViewport* viewport, void* render_arg);
 
     lunalite::rhi::Device* m_device{nullptr};
     lunalite::rhi::BufferHandle m_vertex_buffer{0};

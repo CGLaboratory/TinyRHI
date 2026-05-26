@@ -1,24 +1,140 @@
 #include "swapchain.h"
 
 #include "device.h"
-#include "../interface/surface.h"
+
+#include <memory>
 
 namespace lunalite::rhi {
-OpenGLSwapchain::OpenGLSwapchain(OpenGLDevice& device, Surface& surface)
-    : m_device(device),
-      m_surface(surface),
-      m_color_view(m_device.createSwapchainTextureView(TextureFormat::RGBA8)),
-      m_depth_stencil_view(m_device.createSwapchainTextureView(TextureFormat::Depth24Stencil8))
+
+SwapchainHandle OpenGLDevice::createSwapchain(Surface& surface, const SwapchainDesc& desc)
 {
-    uint32_t width = m_surface.getWidth();
-    uint32_t height = m_surface.getHeight();
-    const auto& gl_surface = m_surface.getSurfaceDesc().opengl;
-    if (gl_surface.get_framebuffer_size != nullptr) {
-        gl_surface.get_framebuffer_size(gl_surface.user_data, width, height);
+    SwapchainHandle handle = 0;
+    for (size_t i = 0; i < m_swapchains.size(); ++i) {
+        if (m_swapchains[i] == nullptr) {
+            handle = static_cast<SwapchainHandle>(i + 1);
+            break;
+        }
     }
 
-    m_surface.resize(width, height);
-    resize(width, height);
+    if (handle == 0) {
+        handle = static_cast<SwapchainHandle>(m_swapchains.size() + 1);
+    }
+
+    auto swapchain = std::make_unique<OpenGLSwapchain>(*this, handle, surface, desc);
+    if (!swapchain->initialize()) {
+        return 0;
+    }
+
+    if (handle > m_swapchains.size()) {
+        m_swapchains.push_back(std::move(swapchain));
+    } else {
+        m_swapchains[handle - 1] = std::move(swapchain);
+    }
+
+    return handle;
+}
+
+void OpenGLDevice::destroySwapchain(SwapchainHandle swapchain)
+{
+    if (getOpenGLSwapchain(swapchain) == nullptr) {
+        return;
+    }
+
+    m_swapchains[swapchain - 1].reset();
+}
+
+Swapchain* OpenGLDevice::getSwapchain(SwapchainHandle swapchain)
+{
+    return getOpenGLSwapchain(swapchain);
+}
+
+OpenGLSwapchain* OpenGLDevice::getOpenGLSwapchain(SwapchainHandle handle)
+{
+    if (handle == 0 || handle > m_swapchains.size()) {
+        return nullptr;
+    }
+
+    return m_swapchains[handle - 1].get();
+}
+
+bool OpenGLDevice::ensureContextForSwapchain(OpenGLSwapchain& swapchain, bool vsync)
+{
+    return ensureOpenGLNativeContext(m_native_context, swapchain.nativeSwapchain(), vsync);
+}
+
+bool OpenGLDevice::makeSwapchainCurrent(SwapchainHandle swapchain)
+{
+    auto* glSwapchain = getOpenGLSwapchain(swapchain);
+    if (glSwapchain == nullptr) {
+        return false;
+    }
+
+    return makeOpenGLNativeContextCurrent(m_native_context, glSwapchain->nativeSwapchain());
+}
+
+bool OpenGLDevice::makeAnySwapchainCurrent()
+{
+    for (size_t i = 0; i < m_swapchains.size(); ++i) {
+        if (m_swapchains[i] != nullptr && makeSwapchainCurrent(static_cast<SwapchainHandle>(i + 1))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void OpenGLDevice::releaseContext()
+{
+    destroyOpenGLNativeContext(m_native_context);
+}
+
+void OpenGLDevice::releaseNativeSwapchain(OpenGLNativeSwapchain& swapchain)
+{
+    destroyOpenGLNativeSwapchain(m_native_context, swapchain);
+}
+
+OpenGLSwapchain::OpenGLSwapchain(OpenGLDevice& device,
+                                 SwapchainHandle handle,
+                                 Surface& surface,
+                                 const SwapchainDesc& desc)
+    : m_device(device),
+      m_handle(handle),
+      m_surface(surface),
+      m_desc(desc)
+{}
+
+OpenGLSwapchain::~OpenGLSwapchain()
+{
+    if (m_color_view != 0) {
+        m_device.destroyTextureView(m_color_view);
+        m_color_view = 0;
+    }
+
+    if (m_depth_stencil_view != 0) {
+        m_device.destroyTextureView(m_depth_stencil_view);
+        m_depth_stencil_view = 0;
+    }
+
+    m_device.releaseNativeSwapchain(m_native);
+}
+
+bool OpenGLSwapchain::initialize()
+{
+    if (!createOpenGLNativeSwapchain(m_surface.getNativeHandle(), m_native)) {
+        return false;
+    }
+
+    if (!m_device.ensureContextForSwapchain(*this, m_desc.vsync)) {
+        return false;
+    }
+
+    m_color_view = m_device.createSwapchainTextureView(m_desc.color_format, m_handle);
+    if (m_desc.enable_depth_stencil) {
+        m_depth_stencil_view = m_device.createSwapchainTextureView(m_desc.depth_stencil_format, m_handle);
+    }
+
+    resize(m_surface.getWidth(), m_surface.getHeight());
+    return true;
 }
 
 TextureViewHandle OpenGLSwapchain::getCurrentColorTextureView() const
@@ -45,13 +161,27 @@ void OpenGLSwapchain::resize(uint32_t width, uint32_t height)
 {
     m_width = width;
     m_height = height;
+    m_device.resizeSwapchainTextureView(m_color_view, width, height);
+    m_device.resizeSwapchainTextureView(m_depth_stencil_view, width, height);
 }
 
 void OpenGLSwapchain::present()
 {
-    const auto& gl_surface = m_surface.getSurfaceDesc().opengl;
-    if (gl_surface.swap_buffers != nullptr) {
-        gl_surface.swap_buffers(gl_surface.user_data);
+    if (!m_device.makeSwapchainCurrent(m_handle)) {
+        return;
     }
+
+    presentOpenGLNativeSwapchain(m_native);
 }
+
+SwapchainHandle OpenGLSwapchain::handle() const
+{
+    return m_handle;
+}
+
+OpenGLNativeSwapchain& OpenGLSwapchain::nativeSwapchain()
+{
+    return m_native;
+}
+
 } // namespace lunalite::rhi

@@ -8,7 +8,7 @@ set(TINYRHI_EXAMPLES_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 function(tinyrhi_add_example target)
     add_executable(${target}
         ${ARGN}
-        ${TINYRHI_EXAMPLES_ROOT}/common/win32_gl_surface.cpp
+        ${TINYRHI_EXAMPLES_ROOT}/common/win32_surface.cpp
     )
 
     target_link_libraries(${target}
@@ -23,8 +23,6 @@ function(tinyrhi_add_example target)
     )
 
     target_compile_features(${target} PRIVATE cxx_std_20)
-
-    target_link_libraries(${target} PRIVATE opengl32)
 endfunction()
 
 add_subdirectory(clear_window)

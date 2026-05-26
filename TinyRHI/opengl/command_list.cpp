@@ -141,6 +141,7 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
 
     bool uses_swapchain = false;
     bool uses_offscreen_texture = false;
+    SwapchainHandle active_swapchain = 0;
     const auto inspectAttachment = [&](TextureViewHandle view, const char* label) {
         const auto* glView = m_device.getTextureView(view);
         const auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
@@ -150,6 +151,18 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
         }
 
         if (glTexture->is_swapchain_backbuffer) {
+            if (glTexture->swapchain == 0) {
+                std::printf("OpenGL render pass begin failed: invalid swapchain %s attachment.\n", label);
+                return false;
+            }
+
+            if (active_swapchain == 0) {
+                active_swapchain = glTexture->swapchain;
+            } else if (active_swapchain != glTexture->swapchain) {
+                std::printf("OpenGL render pass begin failed: cannot mix multiple swapchains.\n");
+                return false;
+            }
+
             uses_swapchain = true;
         } else {
             uses_offscreen_texture = true;
@@ -170,6 +183,11 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
 
     if (uses_swapchain && uses_offscreen_texture) {
         std::printf("OpenGL render pass begin failed: cannot mix swapchain and offscreen attachments.\n");
+        return;
+    }
+
+    if (uses_swapchain && !m_device.makeSwapchainCurrent(active_swapchain)) {
+        std::printf("OpenGL render pass begin failed: could not make swapchain current.\n");
         return;
     }
 

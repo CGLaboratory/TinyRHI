@@ -1,6 +1,9 @@
 #include "tiny_rhi_imgui_renderer.h"
 
+#include "imgui_viewport_surface.h"
+
 #include <algorithm>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -53,6 +56,26 @@ ImTextureID textureIdFromBindGroup(BindGroupHandle bind_group)
     return static_cast<ImTextureID>(bind_group);
 }
 
+struct ViewportRenderData {
+    explicit ViewportRenderData(void* window, uint32_t width, uint32_t height)
+        : surface(window, width, height)
+    {}
+
+    ImGuiViewportSurface surface;
+    SwapchainHandle swapchain_handle{0};
+    Swapchain* swapchain{nullptr};
+};
+
+uint32_t viewportDimension(float value)
+{
+    return value > 0.0f ? static_cast<uint32_t>(value) : 1;
+}
+
+ViewportRenderData* viewportRenderData(ImGuiViewport* viewport)
+{
+    return viewport != nullptr ? static_cast<ViewportRenderData*>(viewport->RendererUserData) : nullptr;
+}
+
 IndexFormat imguiIndexFormat()
 {
     static_assert(sizeof(ImDrawIdx) == 2 || sizeof(ImDrawIdx) == 4);
@@ -75,7 +98,9 @@ bool TinyRHIImGuiRenderer::init(Device& device)
     m_device = &device;
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "TinyRHI";
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    io.BackendRendererUserData = this;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasViewports;
+    initViewportSupport();
 
     if (!createStaticResources() || !createFontTexture()) {
         shutdown();
@@ -89,8 +114,10 @@ void TinyRHIImGuiRenderer::shutdown()
 {
     if (ImGui::GetCurrentContext() != nullptr) {
         ImGuiIO& io = ImGui::GetIO();
+        shutdownViewportSupport();
         io.BackendRendererName = nullptr;
-        io.BackendFlags &= ~ImGuiBackendFlags_RendererHasVtxOffset;
+        io.BackendRendererUserData = nullptr;
+        io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasViewports);
         io.Fonts->SetTexID(ImTextureID_Invalid);
     }
 
@@ -238,6 +265,166 @@ void TinyRHIImGuiRenderer::render(ImDrawData* draw_data, CommandList& commands)
 
         globalIndexOffset += static_cast<uint32_t>(commandList->IdxBuffer.Size);
         globalVertexOffset += commandList->VtxBuffer.Size;
+    }
+}
+
+void TinyRHIImGuiRenderer::initViewportSupport()
+{
+    ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+    platformIO.Renderer_CreateWindow = &TinyRHIImGuiRenderer::createViewportWindowCallback;
+    platformIO.Renderer_DestroyWindow = &TinyRHIImGuiRenderer::destroyViewportWindowCallback;
+    platformIO.Renderer_SetWindowSize = &TinyRHIImGuiRenderer::setViewportWindowSizeCallback;
+    platformIO.Renderer_RenderWindow = &TinyRHIImGuiRenderer::renderViewportWindowCallback;
+    platformIO.Renderer_SwapBuffers = &TinyRHIImGuiRenderer::swapViewportBuffersCallback;
+}
+
+void TinyRHIImGuiRenderer::shutdownViewportSupport()
+{
+    ImGui::DestroyPlatformWindows();
+    ImGui::GetPlatformIO().ClearRendererHandlers();
+}
+
+void TinyRHIImGuiRenderer::createViewportWindow(ImGuiViewport* viewport)
+{
+    if (m_device == nullptr || viewport == nullptr || viewport->RendererUserData != nullptr) {
+        return;
+    }
+
+    void* window = viewport->PlatformHandleRaw != nullptr ? viewport->PlatformHandleRaw : viewport->PlatformHandle;
+    if (window == nullptr) {
+        std::printf("TinyRHI ImGui renderer failed to create viewport: missing native window handle.\n");
+        return;
+    }
+
+    auto* data = IM_NEW(ViewportRenderData)(
+        window,
+        viewportDimension(viewport->Size.x),
+        viewportDimension(viewport->Size.y));
+
+    SwapchainDesc desc{};
+    desc.enable_depth_stencil = false;
+    data->swapchain_handle = m_device->createSwapchain(data->surface, desc);
+    data->swapchain = m_device->getSwapchain(data->swapchain_handle);
+    if (data->swapchain == nullptr) {
+        std::printf("TinyRHI ImGui renderer failed to create viewport swapchain.\n");
+        IM_DELETE(data);
+        return;
+    }
+
+    viewport->RendererUserData = data;
+}
+
+void TinyRHIImGuiRenderer::destroyViewportWindow(ImGuiViewport* viewport)
+{
+    auto* data = viewportRenderData(viewport);
+    if (data != nullptr) {
+        if (m_device != nullptr && data->swapchain_handle != 0) {
+            m_device->destroySwapchain(data->swapchain_handle);
+        }
+        data->swapchain = nullptr;
+        data->swapchain_handle = 0;
+        IM_DELETE(data);
+    }
+
+    if (viewport != nullptr) {
+        viewport->RendererUserData = nullptr;
+    }
+}
+
+void TinyRHIImGuiRenderer::setViewportWindowSize(ImGuiViewport* viewport, ImVec2 size)
+{
+    auto* data = viewportRenderData(viewport);
+    if (data == nullptr || data->swapchain == nullptr) {
+        return;
+    }
+
+    const uint32_t width = viewportDimension(size.x);
+    const uint32_t height = viewportDimension(size.y);
+    data->surface.resize(width, height);
+    data->swapchain->resize(width, height);
+}
+
+void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
+{
+    auto* data = viewportRenderData(viewport);
+    if (data == nullptr || data->swapchain == nullptr || viewport == nullptr || viewport->DrawData == nullptr) {
+        return;
+    }
+
+    const uint32_t width = viewportDimension(viewport->Size.x);
+    const uint32_t height = viewportDimension(viewport->Size.y);
+    data->surface.resize(width, height);
+    data->swapchain->resize(width, height);
+
+    RenderPassBeginInfo pass{};
+    pass.color_attachments.push_back(ColorAttachmentDesc{
+        .view = data->swapchain->getCurrentColorTextureView(),
+        .load_op = (viewport->Flags & ImGuiViewportFlags_NoRendererClear) ? LoadOp::Load : LoadOp::Clear,
+        .store_op = StoreOp::Store,
+        .clear_color = ClearColor{0.0f, 0.0f, 0.0f, 1.0f},
+    });
+    pass.width = data->swapchain->getWidth();
+    pass.height = data->swapchain->getHeight();
+
+    auto& commands = m_device->getCommandList();
+    commands.begin();
+    commands.beginRenderPass(pass);
+    render(viewport->DrawData, commands);
+    commands.endRenderPass();
+    commands.end();
+}
+
+void TinyRHIImGuiRenderer::swapViewportBuffers(ImGuiViewport* viewport)
+{
+    auto* data = viewportRenderData(viewport);
+    if (data != nullptr && data->swapchain != nullptr) {
+        data->swapchain->present();
+    }
+}
+
+TinyRHIImGuiRenderer* TinyRHIImGuiRenderer::currentRenderer()
+{
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return nullptr;
+    }
+
+    return static_cast<TinyRHIImGuiRenderer*>(ImGui::GetIO().BackendRendererUserData);
+}
+
+void TinyRHIImGuiRenderer::createViewportWindowCallback(ImGuiViewport* viewport)
+{
+    if (auto* renderer = currentRenderer()) {
+        renderer->createViewportWindow(viewport);
+    }
+}
+
+void TinyRHIImGuiRenderer::destroyViewportWindowCallback(ImGuiViewport* viewport)
+{
+    if (auto* renderer = currentRenderer()) {
+        renderer->destroyViewportWindow(viewport);
+    }
+}
+
+void TinyRHIImGuiRenderer::setViewportWindowSizeCallback(ImGuiViewport* viewport, ImVec2 size)
+{
+    if (auto* renderer = currentRenderer()) {
+        renderer->setViewportWindowSize(viewport, size);
+    }
+}
+
+void TinyRHIImGuiRenderer::renderViewportWindowCallback(ImGuiViewport* viewport, void* render_arg)
+{
+    auto* renderer = render_arg != nullptr ? static_cast<TinyRHIImGuiRenderer*>(render_arg) : currentRenderer();
+    if (renderer != nullptr) {
+        renderer->renderViewportWindow(viewport);
+    }
+}
+
+void TinyRHIImGuiRenderer::swapViewportBuffersCallback(ImGuiViewport* viewport, void* render_arg)
+{
+    auto* renderer = render_arg != nullptr ? static_cast<TinyRHIImGuiRenderer*>(render_arg) : currentRenderer();
+    if (renderer != nullptr) {
+        renderer->swapViewportBuffers(viewport);
     }
 }
 
