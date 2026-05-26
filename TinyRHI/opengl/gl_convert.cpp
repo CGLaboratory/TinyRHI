@@ -165,6 +165,7 @@ GLenum toGLTextureInternalFormat(TextureFormat format)
 {
     switch (format) {
         case TextureFormat::RGBA8:
+        case TextureFormat::RGBA32:
             return GL_RGBA8;
         case TextureFormat::RGBA16F:
             return GL_RGBA16F;
@@ -183,6 +184,7 @@ GLenum toGLTextureUploadFormat(TextureFormat format)
 {
     switch (format) {
         case TextureFormat::RGBA8:
+        case TextureFormat::RGBA32:
         case TextureFormat::RGBA16F:
         case TextureFormat::RGBA32F:
             return GL_RGBA;
@@ -199,6 +201,7 @@ GLenum toGLTextureUploadType(TextureFormat format)
 {
     switch (format) {
         case TextureFormat::RGBA8:
+        case TextureFormat::RGBA32:
             return GL_UNSIGNED_BYTE;
         case TextureFormat::RGBA16F:
             return GL_HALF_FLOAT;
@@ -221,6 +224,7 @@ GLenum toGLAttachment(TextureFormat format)
         case TextureFormat::Depth32F:
             return GL_DEPTH_ATTACHMENT;
         case TextureFormat::RGBA8:
+        case TextureFormat::RGBA32:
         case TextureFormat::RGBA16F:
         case TextureFormat::RGBA32F:
             return GL_COLOR_ATTACHMENT0;
@@ -257,6 +261,7 @@ uint32_t vertexFormatComponentCount(VertexFormat format)
         case VertexFormat::Int4:
         case VertexFormat::UInt4:
         case VertexFormat::Bool4:
+        case VertexFormat::RGBA8Unorm:
             return 4;
     }
 
@@ -288,6 +293,8 @@ GLenum vertexFormatType(VertexFormat format)
             return GL_BOOL;
         case VertexFormat::Byte:
             return GL_BYTE;
+        case VertexFormat::RGBA8Unorm:
+            return GL_UNSIGNED_BYTE;
     }
 
     return GL_FLOAT;
@@ -314,10 +321,16 @@ bool isIntegerVertexFormat(VertexFormat format)
         case VertexFormat::Float2:
         case VertexFormat::Float3:
         case VertexFormat::Float4:
+        case VertexFormat::RGBA8Unorm:
             return false;
     }
 
     return false;
+}
+
+bool isNormalizedVertexFormat(VertexFormat format)
+{
+    return format == VertexFormat::RGBA8Unorm;
 }
 
 } // namespace lunalite::rhi

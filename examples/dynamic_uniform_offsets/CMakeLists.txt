@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_dynamic_uniform_offsets dynamic_uniform_offsets.cpp)

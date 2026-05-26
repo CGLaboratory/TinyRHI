@@ -1,3 +1,7 @@
 [submodule "third_party/glm"]
 	path = third_party/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "examples/dependences/imgui"]
+	path = examples/dependences/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking

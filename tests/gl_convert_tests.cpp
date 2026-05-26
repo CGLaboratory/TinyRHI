@@ -35,15 +35,18 @@ TINYRHI_TEST_CASE("render states map to OpenGL enums")
 TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 {
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8) == GL_RGBA8);
+    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA32) == GL_RGBA8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA16F) == GL_RGBA16F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA32F) == GL_RGBA32F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH24_STENCIL8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::Depth32F) == GL_DEPTH_COMPONENT32F);
 
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8) == GL_RGBA);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA32) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH_STENCIL);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth32F) == GL_DEPTH_COMPONENT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8) == GL_UNSIGNED_BYTE);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA32) == GL_UNSIGNED_BYTE);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth24Stencil8) == GL_UNSIGNED_INT_24_8);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth32F) == GL_FLOAT);
 }
@@ -54,9 +57,14 @@ TINYRHI_TEST_CASE("vertex formats describe locations and component layouts")
     TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::Float2) == 2);
     TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::Float3) == 3);
     TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::Float4) == 4);
+    TINYRHI_CHECK(vertexFormatComponentCount(VertexFormat::RGBA8Unorm) == 4);
     TINYRHI_CHECK(vertexFormatType(VertexFormat::Float3) == GL_FLOAT);
     TINYRHI_CHECK(vertexFormatType(VertexFormat::UInt4) == GL_UNSIGNED_INT);
+    TINYRHI_CHECK(vertexFormatType(VertexFormat::RGBA8Unorm) == GL_UNSIGNED_BYTE);
     TINYRHI_CHECK(!isIntegerVertexFormat(VertexFormat::Float4));
+    TINYRHI_CHECK(!isIntegerVertexFormat(VertexFormat::RGBA8Unorm));
+    TINYRHI_CHECK(isNormalizedVertexFormat(VertexFormat::RGBA8Unorm));
+    TINYRHI_CHECK(!isNormalizedVertexFormat(VertexFormat::Float4));
     TINYRHI_CHECK(isIntegerVertexFormat(VertexFormat::Int4));
     TINYRHI_CHECK(isIntegerVertexFormat(VertexFormat::UInt4));
     TINYRHI_CHECK(isIntegerVertexFormat(VertexFormat::Byte));

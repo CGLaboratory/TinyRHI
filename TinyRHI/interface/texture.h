@@ -8,6 +8,7 @@ namespace lunalite::rhi {
 
 enum class TextureFormat {
     RGBA8,
+    RGBA32,
     RGBA16F,
     RGBA32F,
     Depth24Stencil8,

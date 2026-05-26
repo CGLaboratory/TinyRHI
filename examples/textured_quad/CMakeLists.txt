@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_textured_quad textured_quad.cpp)

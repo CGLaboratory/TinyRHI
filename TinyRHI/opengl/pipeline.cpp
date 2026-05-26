@@ -69,7 +69,12 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
             if (isIntegerVertexFormat(attribute.format)) {
                 glVertexArrayAttribIFormat(vao, location, componentCount, type, attribute.offset);
             } else {
-                glVertexArrayAttribFormat(vao, location, componentCount, type, GL_FALSE, attribute.offset);
+                glVertexArrayAttribFormat(vao,
+                                          location,
+                                          componentCount,
+                                          type,
+                                          isNormalizedVertexFormat(attribute.format) ? GL_TRUE : GL_FALSE,
+                                          attribute.offset);
             }
 
             glVertexArrayAttribBinding(vao, location, buffer.binding);

@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_depth_test depth_test.cpp)

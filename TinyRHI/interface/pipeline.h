@@ -69,7 +69,8 @@ enum class VertexFormat {
     Bool2,
     Bool3,
     Bool4,
-    Byte
+    Byte,
+    RGBA8Unorm
 };
 
 enum class VertexStepMode {

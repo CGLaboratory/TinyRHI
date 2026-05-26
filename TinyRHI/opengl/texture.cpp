@@ -9,6 +9,7 @@ size_t textureFormatBytesPerPixel(TextureFormat format)
 {
     switch (format) {
         case TextureFormat::RGBA8:
+        case TextureFormat::RGBA32:
             return 4;
         case TextureFormat::RGBA16F:
             return 8;

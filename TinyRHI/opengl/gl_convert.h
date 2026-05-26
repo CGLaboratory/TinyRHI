@@ -30,5 +30,6 @@ bool isDepthFormat(TextureFormat format);
 uint32_t vertexFormatComponentCount(VertexFormat format);
 GLenum vertexFormatType(VertexFormat format);
 bool isIntegerVertexFormat(VertexFormat format);
+bool isNormalizedVertexFormat(VertexFormat format);
 
 } // namespace lunalite::rhi

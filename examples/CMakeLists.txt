@@ -3,10 +3,12 @@ if(NOT WIN32)
     return()
 endif()
 
+set(TINYRHI_EXAMPLES_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
 function(tinyrhi_add_example target)
     add_executable(${target}
         ${ARGN}
-        common/win32_gl_surface.cpp
+        ${TINYRHI_EXAMPLES_ROOT}/common/win32_gl_surface.cpp
     )
 
     target_link_libraries(${target}
@@ -17,6 +19,7 @@ function(tinyrhi_add_example target)
     target_include_directories(${target}
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
+            ${TINYRHI_EXAMPLES_ROOT}
     )
 
     target_compile_features(${target} PRIVATE cxx_std_20)
@@ -24,13 +27,14 @@ function(tinyrhi_add_example target)
     target_link_libraries(${target} PRIVATE opengl32)
 endfunction()
 
-tinyrhi_add_example(tinyrhi_clear_window clear_window.cpp)
-tinyrhi_add_example(tinyrhi_triangle triangle.cpp)
-tinyrhi_add_example(tinyrhi_dynamic_uniform_offsets dynamic_uniform_offsets.cpp)
-tinyrhi_add_example(tinyrhi_multi_vertex_buffers multi_vertex_buffers.cpp)
-tinyrhi_add_example(tinyrhi_push_constants push_constants.cpp)
-tinyrhi_add_example(tinyrhi_textured_quad textured_quad.cpp)
-tinyrhi_add_example(tinyrhi_depth_test depth_test.cpp)
-tinyrhi_add_example(tinyrhi_alpha_blend alpha_blend.cpp)
-tinyrhi_add_example(tinyrhi_line_grid line_grid.cpp)
-tinyrhi_add_example(tinyrhi_scissor scissor.cpp)
+add_subdirectory(clear_window)
+add_subdirectory(triangle)
+add_subdirectory(dynamic_uniform_offsets)
+add_subdirectory(multi_vertex_buffers)
+add_subdirectory(push_constants)
+add_subdirectory(textured_quad)
+add_subdirectory(depth_test)
+add_subdirectory(alpha_blend)
+add_subdirectory(line_grid)
+add_subdirectory(scissor)
+add_subdirectory(imgui)

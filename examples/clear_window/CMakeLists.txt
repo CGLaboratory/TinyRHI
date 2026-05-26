@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_clear_window clear_window.cpp)

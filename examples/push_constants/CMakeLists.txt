@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_push_constants push_constants.cpp)

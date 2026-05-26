@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_multi_vertex_buffers multi_vertex_buffers.cpp)
