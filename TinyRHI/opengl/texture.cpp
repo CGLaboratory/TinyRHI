@@ -40,8 +40,8 @@ TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
     glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    m_textures.push_back(OpenGLTexture{.id = texture, .desc = desc, .is_swapchain_backbuffer = false, .swapchain = 0});
-    return static_cast<TextureHandle>(m_textures.size());
+    m_textures.push_back(OpenGLTexture{.id = texture, .desc = desc, .is_swapchain_backbuffer = false});
+    return makeHandle<TextureHandle>(m_textures.size() - 1);
 }
 
 void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc& desc)
@@ -94,7 +94,7 @@ TextureViewHandle OpenGLDevice::createTextureView(const TextureViewDesc& desc)
 {
     auto* glTexture = getTexture(desc.texture);
     if (glTexture == nullptr) {
-        return 0;
+        return {};
     }
 
     m_texture_views.push_back(OpenGLTextureView{
@@ -106,7 +106,7 @@ TextureViewHandle OpenGLDevice::createTextureView(const TextureViewDesc& desc)
         .base_array_layer = desc.base_array_layer,
         .array_layer_count = desc.array_layer_count,
     });
-    return static_cast<TextureViewHandle>(m_texture_views.size());
+    return makeHandle<TextureViewHandle>(m_texture_views.size() - 1);
 }
 
 void OpenGLDevice::destroyTextureView(TextureViewHandle view)
@@ -116,7 +116,7 @@ void OpenGLDevice::destroyTextureView(TextureViewHandle view)
         return;
     }
 
-    glView->texture = 0;
+    glView->texture = {};
 }
 
 TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format, SwapchainHandle swapchain)
@@ -130,13 +130,13 @@ TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format,
         .swapchain = swapchain,
     });
 
-    const auto texture = static_cast<TextureHandle>(m_textures.size());
+    const auto texture = makeHandle<TextureHandle>(m_textures.size() - 1);
     m_texture_views.push_back(OpenGLTextureView{
         .texture = texture,
         .format = format,
         .aspect = isDepthFormat(format) ? TextureAspect::DepthStencil : TextureAspect::Color,
     });
-    return static_cast<TextureViewHandle>(m_texture_views.size());
+    return makeHandle<TextureViewHandle>(m_texture_views.size() - 1);
 }
 
 void OpenGLDevice::resizeSwapchainTextureView(TextureViewHandle view, uint32_t width, uint32_t height)

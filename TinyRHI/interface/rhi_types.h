@@ -1,20 +1,75 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace lunalite::rhi {
 
-using BufferHandle = uint32_t;
-using ShaderHandle = uint32_t;
-using PipelineHandle = uint32_t;
-using PipelineLayoutHandle = uint32_t;
-using TextureHandle = uint32_t;
-using TextureViewHandle = uint32_t;
-using SamplerHandle = uint32_t;
-using BindGroupLayoutHandle = uint32_t;
-using BindGroupHandle = uint32_t;
-using SwapchainHandle = uint32_t;
-using SurfaceHandle = uint32_t;
+template <typename Tag>
+struct Handle {
+    uint32_t value{0};
+
+    constexpr Handle() = default;
+    constexpr explicit Handle(uint32_t handle_value)
+        : value(handle_value)
+    {}
+
+    constexpr explicit operator bool() const { return value != 0; }
+};
+
+template <typename Tag>
+constexpr bool operator==(Handle<Tag> lhs, Handle<Tag> rhs)
+{
+    return lhs.value == rhs.value;
+}
+
+template <typename Tag>
+constexpr bool operator!=(Handle<Tag> lhs, Handle<Tag> rhs)
+{
+    return !(lhs == rhs);
+}
+
+template <typename Tag>
+constexpr uint32_t handleValue(Handle<Tag> handle)
+{
+    return handle.value;
+}
+
+template <typename Tag>
+constexpr size_t handleIndex(Handle<Tag> handle)
+{
+    return static_cast<size_t>(handle.value - 1);
+}
+
+template <typename HandleType>
+constexpr HandleType makeHandle(size_t index)
+{
+    return HandleType{static_cast<uint32_t>(index + 1)};
+}
+
+struct BufferHandleTag;
+struct ShaderHandleTag;
+struct PipelineHandleTag;
+struct PipelineLayoutHandleTag;
+struct TextureHandleTag;
+struct TextureViewHandleTag;
+struct SamplerHandleTag;
+struct BindGroupLayoutHandleTag;
+struct BindGroupHandleTag;
+struct SwapchainHandleTag;
+struct SurfaceHandleTag;
+
+using BufferHandle = Handle<BufferHandleTag>;
+using ShaderHandle = Handle<ShaderHandleTag>;
+using PipelineHandle = Handle<PipelineHandleTag>;
+using PipelineLayoutHandle = Handle<PipelineLayoutHandleTag>;
+using TextureHandle = Handle<TextureHandleTag>;
+using TextureViewHandle = Handle<TextureViewHandleTag>;
+using SamplerHandle = Handle<SamplerHandleTag>;
+using BindGroupLayoutHandle = Handle<BindGroupLayoutHandleTag>;
+using BindGroupHandle = Handle<BindGroupHandleTag>;
+using SwapchainHandle = Handle<SwapchainHandleTag>;
+using SurfaceHandle = Handle<SurfaceHandleTag>;
 
 enum class BackendType {
     OpenGL,

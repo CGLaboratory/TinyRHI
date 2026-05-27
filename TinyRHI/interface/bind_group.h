@@ -31,7 +31,7 @@ struct BindGroupLayoutDesc {
 };
 
 struct BufferBinding {
-    BufferHandle buffer{0};
+    BufferHandle buffer{};
     size_t offset{0};
     size_t size{0};
 };
@@ -40,12 +40,12 @@ struct BindGroupEntry {
     uint32_t binding{0};
     BindingType type{BindingType::UniformBuffer};
     BufferBinding buffer{};
-    TextureViewHandle texture_view{0};
-    SamplerHandle sampler{0};
+    TextureViewHandle texture_view{};
+    SamplerHandle sampler{};
 };
 
 struct BindGroupDesc {
-    BindGroupLayoutHandle layout{0};
+    BindGroupLayoutHandle layout{};
     std::vector<BindGroupEntry> entries;
 };
 

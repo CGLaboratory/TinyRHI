@@ -67,7 +67,7 @@ struct TextureDesc {
 };
 
 struct TextureViewDesc {
-    TextureHandle texture{0};
+    TextureHandle texture{};
     TextureFormat format{TextureFormat::RGBA8};
     TextureAspect aspect{TextureAspect::Color};
     uint32_t base_mip_level{0};

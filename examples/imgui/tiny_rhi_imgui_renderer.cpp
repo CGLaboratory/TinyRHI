@@ -51,12 +51,12 @@ constexpr uint32_t kProjectionMatrixSize = 16 * sizeof(float);
 
 ImTextureID textureIdFromBindGroup(BindGroupHandle bind_group)
 {
-    return static_cast<ImTextureID>(bind_group);
+    return static_cast<ImTextureID>(handleValue(bind_group));
 }
 
 struct ViewportRenderData {
-    SurfaceHandle surface{0};
-    SwapchainHandle swapchain_handle{0};
+    SurfaceHandle surface{};
+    SwapchainHandle swapchain_handle{};
     Swapchain* swapchain{nullptr};
 };
 
@@ -128,29 +128,29 @@ void TinyRHIImGuiRenderer::shutdown()
     destroyBuffers();
     destroyFontTexture();
 
-    if (m_pipeline != 0) {
+    if (m_pipeline) {
         m_device->destroyPipeline(m_pipeline);
-        m_pipeline = 0;
+        m_pipeline = {};
     }
-    if (m_pipeline_layout != 0) {
+    if (m_pipeline_layout) {
         m_device->destroyPipelineLayout(m_pipeline_layout);
-        m_pipeline_layout = 0;
+        m_pipeline_layout = {};
     }
-    if (m_bind_group_layout != 0) {
+    if (m_bind_group_layout) {
         m_device->destroyBindGroupLayout(m_bind_group_layout);
-        m_bind_group_layout = 0;
+        m_bind_group_layout = {};
     }
-    if (m_sampler != 0) {
+    if (m_sampler) {
         m_device->destroySampler(m_sampler);
-        m_sampler = 0;
+        m_sampler = {};
     }
-    if (m_fragment_shader != 0) {
+    if (m_fragment_shader) {
         m_device->destroyShader(m_fragment_shader);
-        m_fragment_shader = 0;
+        m_fragment_shader = {};
     }
-    if (m_vertex_shader != 0) {
+    if (m_vertex_shader) {
         m_device->destroyShader(m_vertex_shader);
-        m_vertex_shader = 0;
+        m_vertex_shader = {};
     }
 
     m_device = nullptr;
@@ -252,7 +252,7 @@ void TinyRHIImGuiRenderer::render(ImDrawData* draw_data, CommandList& commands)
             };
 
             const BindGroupHandle bindGroup = bindGroupFromTextureId(drawCommand->GetTexID());
-            if (bindGroup == 0) {
+            if (!bindGroup) {
                 continue;
             }
 
@@ -330,15 +330,15 @@ void TinyRHIImGuiRenderer::destroyViewportWindow(ImGuiViewport* viewport)
 {
     auto* data = viewportRenderData(viewport);
     if (data != nullptr) {
-        if (m_device != nullptr && data->swapchain_handle != 0) {
+        if (m_device != nullptr && data->swapchain_handle) {
             m_device->destroySwapchain(data->swapchain_handle);
         }
-        if (m_instance != nullptr && data->surface != 0) {
+        if (m_instance != nullptr && data->surface) {
             m_instance->destroySurface(data->surface);
         }
         data->swapchain = nullptr;
-        data->swapchain_handle = 0;
-        data->surface = 0;
+        data->swapchain_handle = {};
+        data->surface = {};
         IM_DELETE(data);
     }
 
@@ -516,8 +516,7 @@ bool TinyRHIImGuiRenderer::createStaticResources()
     pipelineDesc.raster_state.cull_mode = CullMode::None;
     m_pipeline = m_device->createPipeline(pipelineDesc);
 
-    return m_vertex_shader != 0 && m_fragment_shader != 0 && m_sampler != 0 && m_bind_group_layout != 0
-           && m_pipeline_layout != 0 && m_pipeline != 0;
+    return m_vertex_shader && m_fragment_shader && m_sampler && m_bind_group_layout && m_pipeline_layout && m_pipeline;
 }
 
 bool TinyRHIImGuiRenderer::createFontTexture()
@@ -553,7 +552,7 @@ bool TinyRHIImGuiRenderer::createFontTexture()
     });
     m_font_bind_group = m_device->createBindGroup(bindGroupDesc);
 
-    if (m_font_texture == 0 || m_font_texture_view == 0 || m_font_bind_group == 0) {
+    if (!m_font_texture || !m_font_texture_view || !m_font_bind_group) {
         return false;
     }
 
@@ -574,8 +573,8 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
     const size_t requiredVertexBytes = static_cast<size_t>(vertex_count) * sizeof(ImDrawVert);
     const size_t requiredIndexBytes = static_cast<size_t>(index_count) * sizeof(ImDrawIdx);
 
-    if (m_vertex_buffer == 0 || m_vertex_buffer_size < requiredVertexBytes) {
-        if (m_vertex_buffer != 0) {
+    if (!m_vertex_buffer || m_vertex_buffer_size < requiredVertexBytes) {
+        if (m_vertex_buffer) {
             m_device->destroyBuffer(m_vertex_buffer);
         }
         m_vertex_buffer_size = std::max(requiredVertexBytes, kInitialVertexBufferSize);
@@ -586,8 +585,8 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
         }, nullptr);
     }
 
-    if (m_index_buffer == 0 || m_index_buffer_size < requiredIndexBytes) {
-        if (m_index_buffer != 0) {
+    if (!m_index_buffer || m_index_buffer_size < requiredIndexBytes) {
+        if (m_index_buffer) {
             m_device->destroyBuffer(m_index_buffer);
         }
         m_index_buffer_size = std::max(requiredIndexBytes, kInitialIndexBufferSize);
@@ -598,18 +597,18 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
         }, nullptr);
     }
 
-    return m_vertex_buffer != 0 && m_index_buffer != 0;
+    return m_vertex_buffer && m_index_buffer;
 }
 
 void TinyRHIImGuiRenderer::destroyBuffers()
 {
-    if (m_vertex_buffer != 0) {
+    if (m_vertex_buffer) {
         m_device->destroyBuffer(m_vertex_buffer);
-        m_vertex_buffer = 0;
+        m_vertex_buffer = {};
     }
-    if (m_index_buffer != 0) {
+    if (m_index_buffer) {
         m_device->destroyBuffer(m_index_buffer);
-        m_index_buffer = 0;
+        m_index_buffer = {};
     }
     m_vertex_buffer_size = 0;
     m_index_buffer_size = 0;
@@ -617,27 +616,27 @@ void TinyRHIImGuiRenderer::destroyBuffers()
 
 void TinyRHIImGuiRenderer::destroyFontTexture()
 {
-    if (m_font_bind_group != 0) {
+    if (m_font_bind_group) {
         m_device->destroyBindGroup(m_font_bind_group);
-        m_font_bind_group = 0;
+        m_font_bind_group = {};
     }
-    if (m_font_texture_view != 0) {
+    if (m_font_texture_view) {
         m_device->destroyTextureView(m_font_texture_view);
-        m_font_texture_view = 0;
+        m_font_texture_view = {};
     }
-    if (m_font_texture != 0) {
+    if (m_font_texture) {
         m_device->destroyTexture(m_font_texture);
-        m_font_texture = 0;
+        m_font_texture = {};
     }
 }
 
 BindGroupHandle TinyRHIImGuiRenderer::bindGroupFromTextureId(ImTextureID texture_id) const
 {
     if (texture_id == ImTextureID_Invalid || texture_id > std::numeric_limits<uint32_t>::max()) {
-        return 0;
+        return {};
     }
 
-    return static_cast<BindGroupHandle>(texture_id);
+    return BindGroupHandle{static_cast<uint32_t>(texture_id)};
 }
 
 } // namespace tinyrhi_examples

@@ -32,8 +32,8 @@ public:
 
 private:
     OpenGLDevice& m_device;
-    PipelineHandle m_current_pipeline{0};
-    BufferHandle m_current_index_buffer{0};
+    PipelineHandle m_current_pipeline{};
+    BufferHandle m_current_index_buffer{};
     IndexFormat m_current_index_format{IndexFormat::UInt32};
     size_t m_current_index_buffer_offset{0};
 };

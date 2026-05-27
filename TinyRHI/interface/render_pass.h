@@ -25,14 +25,14 @@ struct ClearColor {
 };
 
 struct ColorAttachmentDesc {
-    TextureViewHandle view{0};
+    TextureViewHandle view{};
     LoadOp load_op{LoadOp::Clear};
     StoreOp store_op{StoreOp::Store};
     ClearColor clear_color{};
 };
 
 struct DepthStencilAttachmentDesc {
-    TextureViewHandle view{0};
+    TextureViewHandle view{};
 
     LoadOp depth_load_op{LoadOp::Clear};
     StoreOp depth_store_op{StoreOp::DontCare};

@@ -32,7 +32,7 @@ struct OpenGLPipeline {
     GLuint vao{0};
     GLenum topology{GL_TRIANGLES};
     VertexInputDesc vertex_input;
-    PipelineLayoutHandle layout{0};
+    PipelineLayoutHandle layout{};
     RenderTargetState render_target_state{};
     DepthState depth_state{};
     RasterState raster_state{};
@@ -42,11 +42,11 @@ struct OpenGLTexture {
     GLuint id{0};
     TextureDesc desc{};
     bool is_swapchain_backbuffer{false};
-    SwapchainHandle swapchain{0};
+    SwapchainHandle swapchain{};
 };
 
 struct OpenGLTextureView {
-    TextureHandle texture{0};
+    TextureHandle texture{};
     TextureFormat format{TextureFormat::RGBA8};
     TextureAspect aspect{TextureAspect::Color};
     uint32_t base_mip_level{0};
@@ -66,7 +66,7 @@ struct OpenGLBindGroupLayout {
 };
 
 struct OpenGLBindGroup {
-    BindGroupLayoutHandle layout{0};
+    BindGroupLayoutHandle layout{};
     std::vector<BindGroupEntry> entries;
 };
 
@@ -79,7 +79,7 @@ struct OpenGLFramebuffer {
     GLuint id{0};
     std::vector<TextureViewHandle> color_views;
     bool has_depth_stencil{false};
-    TextureViewHandle depth_stencil_view{0};
+    TextureViewHandle depth_stencil_view{};
     uint32_t width{0};
     uint32_t height{0};
 };

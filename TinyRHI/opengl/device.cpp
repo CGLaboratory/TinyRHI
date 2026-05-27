@@ -202,7 +202,7 @@ SamplerHandle OpenGLDevice::createSampler(const SamplerDesc& desc)
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, toGLAddressMode(desc.address_v));
 
     m_samplers.push_back(OpenGLSampler{.id = sampler, .desc = desc});
-    return static_cast<SamplerHandle>(m_samplers.size());
+    return makeHandle<SamplerHandle>(m_samplers.size() - 1);
 }
 
 void OpenGLDevice::destroySampler(SamplerHandle sampler)
@@ -219,11 +219,11 @@ void OpenGLDevice::destroySampler(SamplerHandle sampler)
 BindGroupLayoutHandle OpenGLDevice::createBindGroupLayout(const BindGroupLayoutDesc& desc)
 {
     if (!bindGroupLayoutDescValid(desc)) {
-        return 0;
+        return {};
     }
 
     m_bind_group_layouts.push_back(OpenGLBindGroupLayout{.desc = desc, .valid = true});
-    return static_cast<BindGroupLayoutHandle>(m_bind_group_layouts.size());
+    return makeHandle<BindGroupLayoutHandle>(m_bind_group_layouts.size() - 1);
 }
 
 void OpenGLDevice::destroyBindGroupLayout(BindGroupLayoutHandle layout)
@@ -241,21 +241,21 @@ BindGroupHandle OpenGLDevice::createBindGroup(const BindGroupDesc& desc)
 {
     const auto* layout = getBindGroupLayout(desc.layout);
     if (layout == nullptr) {
-        return 0;
+        return {};
     }
 
     if (!bindGroupDescMatchesLayout(layout->desc, desc)) {
-        return 0;
+        return {};
     }
 
     for (const auto& entry : desc.entries) {
         if (!bindGroupEntryResourcesValid(*this, entry)) {
-            return 0;
+            return {};
         }
     }
 
     m_bind_groups.push_back(OpenGLBindGroup{.layout = desc.layout, .entries = desc.entries});
-    return static_cast<BindGroupHandle>(m_bind_groups.size());
+    return makeHandle<BindGroupHandle>(m_bind_groups.size() - 1);
 }
 
 void OpenGLDevice::updateBindGroup(BindGroupHandle group, const BindGroupDesc& desc)
@@ -286,7 +286,7 @@ void OpenGLDevice::destroyBindGroup(BindGroupHandle group)
         return;
     }
 
-    glGroup->layout = 0;
+    glGroup->layout = {};
     glGroup->entries.clear();
 }
 
@@ -294,16 +294,16 @@ PipelineLayoutHandle OpenGLDevice::createPipelineLayout(const PipelineLayoutDesc
 {
     for (const auto layout : desc.bind_group_layouts) {
         if (getBindGroupLayout(layout) == nullptr) {
-            return 0;
+            return {};
         }
     }
 
     if (!pushConstantRangesValid(desc.push_constants)) {
-        return 0;
+        return {};
     }
 
     m_pipeline_layouts.push_back(OpenGLPipelineLayout{.desc = desc, .valid = true});
-    return static_cast<PipelineLayoutHandle>(m_pipeline_layouts.size());
+    return makeHandle<PipelineLayoutHandle>(m_pipeline_layouts.size() - 1);
 }
 
 void OpenGLDevice::destroyPipelineLayout(PipelineLayoutHandle layout)
@@ -320,25 +320,25 @@ void OpenGLDevice::destroyPipelineLayout(PipelineLayoutHandle layout)
 
 OpenGLBuffer* OpenGLDevice::getBuffer(BufferHandle handle)
 {
-    if (handle == 0 || handle > m_buffers.size()) {
+    if (!handle || handle.value > m_buffers.size()) {
         return nullptr;
     }
 
-    auto& buffer = m_buffers[handle - 1];
+    auto& buffer = m_buffers[handleIndex(handle)];
     if (buffer.id == 0) {
         return nullptr;
     }
 
-    return &m_buffers[handle - 1];
+    return &buffer;
 }
 
 OpenGLTexture* OpenGLDevice::getTexture(TextureHandle handle)
 {
-    if (handle == 0 || handle > m_textures.size()) {
+    if (!handle || handle.value > m_textures.size()) {
         return nullptr;
     }
 
-    auto& texture = m_textures[handle - 1];
+    auto& texture = m_textures[handleIndex(handle)];
     if (texture.id == 0 && !texture.is_swapchain_backbuffer) {
         return nullptr;
     }
@@ -348,12 +348,12 @@ OpenGLTexture* OpenGLDevice::getTexture(TextureHandle handle)
 
 OpenGLTextureView* OpenGLDevice::getTextureView(TextureViewHandle handle)
 {
-    if (handle == 0 || handle > m_texture_views.size()) {
+    if (!handle || handle.value > m_texture_views.size()) {
         return nullptr;
     }
 
-    auto& view = m_texture_views[handle - 1];
-    if (view.texture == 0) {
+    auto& view = m_texture_views[handleIndex(handle)];
+    if (!view.texture) {
         return nullptr;
     }
 
@@ -362,11 +362,11 @@ OpenGLTextureView* OpenGLDevice::getTextureView(TextureViewHandle handle)
 
 OpenGLSampler* OpenGLDevice::getSampler(SamplerHandle handle)
 {
-    if (handle == 0 || handle > m_samplers.size()) {
+    if (!handle || handle.value > m_samplers.size()) {
         return nullptr;
     }
 
-    auto& sampler = m_samplers[handle - 1];
+    auto& sampler = m_samplers[handleIndex(handle)];
     if (sampler.id == 0) {
         return nullptr;
     }
@@ -376,11 +376,11 @@ OpenGLSampler* OpenGLDevice::getSampler(SamplerHandle handle)
 
 OpenGLBindGroupLayout* OpenGLDevice::getBindGroupLayout(BindGroupLayoutHandle handle)
 {
-    if (handle == 0 || handle > m_bind_group_layouts.size()) {
+    if (!handle || handle.value > m_bind_group_layouts.size()) {
         return nullptr;
     }
 
-    auto& layout = m_bind_group_layouts[handle - 1];
+    auto& layout = m_bind_group_layouts[handleIndex(handle)];
     if (!layout.valid) {
         return nullptr;
     }
@@ -390,12 +390,12 @@ OpenGLBindGroupLayout* OpenGLDevice::getBindGroupLayout(BindGroupLayoutHandle ha
 
 OpenGLBindGroup* OpenGLDevice::getBindGroup(BindGroupHandle handle)
 {
-    if (handle == 0 || handle > m_bind_groups.size()) {
+    if (!handle || handle.value > m_bind_groups.size()) {
         return nullptr;
     }
 
-    auto& group = m_bind_groups[handle - 1];
-    if (group.layout == 0) {
+    auto& group = m_bind_groups[handleIndex(handle)];
+    if (!group.layout) {
         return nullptr;
     }
 
@@ -404,11 +404,11 @@ OpenGLBindGroup* OpenGLDevice::getBindGroup(BindGroupHandle handle)
 
 OpenGLPipelineLayout* OpenGLDevice::getPipelineLayout(PipelineLayoutHandle handle)
 {
-    if (handle == 0 || handle > m_pipeline_layouts.size()) {
+    if (!handle || handle.value > m_pipeline_layouts.size()) {
         return nullptr;
     }
 
-    auto& layout = m_pipeline_layouts[handle - 1];
+    auto& layout = m_pipeline_layouts[handleIndex(handle)];
     if (!layout.valid) {
         return nullptr;
     }
@@ -418,11 +418,11 @@ OpenGLPipelineLayout* OpenGLDevice::getPipelineLayout(PipelineLayoutHandle handl
 
 OpenGLShader* OpenGLDevice::getShader(ShaderHandle handle)
 {
-    if (handle == 0 || handle > m_shaders.size()) {
+    if (!handle || handle.value > m_shaders.size()) {
         return nullptr;
     }
 
-    auto& shader = m_shaders[handle - 1];
+    auto& shader = m_shaders[handleIndex(handle)];
     if (shader.id == 0) {
         return nullptr;
     }
@@ -432,11 +432,11 @@ OpenGLShader* OpenGLDevice::getShader(ShaderHandle handle)
 
 OpenGLPipeline* OpenGLDevice::getPipeline(PipelineHandle handle)
 {
-    if (handle == 0 || handle > m_pipelines.size()) {
+    if (!handle || handle.value > m_pipelines.size()) {
         return nullptr;
     }
 
-    auto& pipeline = m_pipelines[handle - 1];
+    auto& pipeline = m_pipelines[handleIndex(handle)];
     if (pipeline.program == 0 || pipeline.vao == 0) {
         return nullptr;
     }
@@ -454,7 +454,7 @@ GLuint OpenGLDevice::getFramebuffer(const RenderPassBeginInfo& info)
         }
 
         bool matches = framebuffer.depth_stencil_view
-                       == (info.has_depth_stencil_attachment ? info.depth_stencil_attachment.view : 0);
+                       == (info.has_depth_stencil_attachment ? info.depth_stencil_attachment.view : TextureViewHandle{});
         for (size_t i = 0; matches && i < info.color_attachments.size(); ++i) {
             matches = framebuffer.color_views[i] == info.color_attachments[i].view;
         }
@@ -494,7 +494,7 @@ GLuint OpenGLDevice::getFramebuffer(const RenderPassBeginInfo& info)
         glNamedFramebufferReadBuffer(framebuffer, drawBuffers.front());
     }
 
-    TextureViewHandle depthStencilViewHandle = 0;
+    TextureViewHandle depthStencilViewHandle;
     if (info.has_depth_stencil_attachment) {
         const auto* depthView = getTextureView(info.depth_stencil_attachment.view);
         const auto* depthTexture = depthView ? getTexture(depthView->texture) : nullptr;

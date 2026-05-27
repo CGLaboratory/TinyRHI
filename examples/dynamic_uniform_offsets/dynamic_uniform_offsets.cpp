@@ -148,8 +148,8 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || uniformBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || bindGroupLayout == 0 ||
-        layout == 0 || bindGroup == 0 || pipeline == 0) {
+    if (!vertexBuffer || !uniformBuffer || !vertexShader || !fragmentShader || !bindGroupLayout || !layout || !bindGroup
+        || !pipeline) {
         std::printf("Failed to create dynamic uniform offset resources.\n");
         instance->shutdown();
         return 1;

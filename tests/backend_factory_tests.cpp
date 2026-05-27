@@ -29,8 +29,8 @@ TINYRHI_TEST_CASE("OpenGL instance rejects invalid native windows")
     TINYRHI_REQUIRE(instance != nullptr);
     TINYRHI_REQUIRE(instance->init());
 
-    TINYRHI_CHECK(instance->createSurface(NativeWindowHandle{}) == 0);
-    TINYRHI_CHECK(instance->getSurface(1) == nullptr);
+    TINYRHI_CHECK(!instance->createSurface(NativeWindowHandle{}));
+    TINYRHI_CHECK(instance->getSurface(SurfaceHandle{1}) == nullptr);
     instance->shutdown();
 }
 
@@ -42,7 +42,7 @@ TINYRHI_TEST_CASE("OpenGL device rejects invalid surface handles")
 
     auto* device = instance->getDevice();
     TINYRHI_REQUIRE(device != nullptr);
-    TINYRHI_CHECK(device->createSwapchain(1, SwapchainDesc{}) == 0);
-    TINYRHI_CHECK(device->getSwapchain(1) == nullptr);
+    TINYRHI_CHECK(!device->createSwapchain(SurfaceHandle{1}, SwapchainDesc{}));
+    TINYRHI_CHECK(device->getSwapchain(SwapchainHandle{1}) == nullptr);
     instance->shutdown();
 }

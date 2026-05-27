@@ -21,7 +21,7 @@ enum class ResourceState {
 };
 
 struct TextureBarrier {
-    TextureHandle texture{0};
+    TextureHandle texture{};
     ResourceState old_state{ResourceState::Undefined};
     ResourceState new_state{ResourceState::Undefined};
 };

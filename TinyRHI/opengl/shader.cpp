@@ -32,11 +32,11 @@ ShaderHandle OpenGLDevice::createShader(const ShaderDesc& desc)
     if (success != GL_TRUE) {
         logShaderError(shader);
         glDeleteShader(shader);
-        return 0;
+        return {};
     }
 
     m_shaders.push_back(OpenGLShader{.id = shader, .stage = desc.stage});
-    return static_cast<ShaderHandle>(m_shaders.size());
+    return makeHandle<ShaderHandle>(m_shaders.size() - 1);
 }
 
 void OpenGLDevice::destroyShader(ShaderHandle shader)

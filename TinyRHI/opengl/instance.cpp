@@ -26,11 +26,11 @@ void OpenGLInstance::shutdown()
 SurfaceHandle OpenGLInstance::createSurface(const NativeWindowHandle& native_window)
 {
     if (native_window.platform == NativeWindowHandle::Platform::Unknown || native_window.window == nullptr) {
-        return 0;
+        return {};
     }
 
     auto surface = std::make_unique<OpenGLSurface>(native_window);
-    SurfaceHandle handle = static_cast<SurfaceHandle>(m_surfaces.size() + 1);
+    SurfaceHandle handle = makeHandle<SurfaceHandle>(m_surfaces.size());
     m_surfaces.push_back(std::move(surface));
     return handle;
 }
@@ -42,7 +42,7 @@ void OpenGLInstance::destroySurface(SurfaceHandle surface)
         return;
     }
 
-    m_surfaces[surface - 1].reset();
+    m_surfaces[handleIndex(surface)].reset();
 }
 
 Surface* OpenGLInstance::getSurface(SurfaceHandle surface)
@@ -57,11 +57,11 @@ Device* OpenGLInstance::getDevice()
 
 Surface* OpenGLInstance::getOpenGLSurface(SurfaceHandle handle)
 {
-    if (handle == 0 || handle > m_surfaces.size()) {
+    if (!handle || handle.value > m_surfaces.size()) {
         return nullptr;
     }
 
-    return m_surfaces[handle - 1].get();
+    return m_surfaces[handleIndex(handle)].get();
 }
 
 } // namespace lunalite::rhi

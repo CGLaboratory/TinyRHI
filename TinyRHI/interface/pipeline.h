@@ -161,7 +161,7 @@ struct PipelineLayoutDesc {
 struct PipelineDesc {
     PrimitiveTopology topology;
     VertexInputDesc vertex_input;
-    PipelineLayoutHandle layout{0};
+    PipelineLayoutHandle layout{};
     ShaderHandle vertex_shader;
     ShaderHandle fragment_shader;
     RenderTargetState render_target_state{};

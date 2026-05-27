@@ -10,7 +10,7 @@ BufferHandle OpenGLDevice::createBuffer(const BufferDesc& desc, const void* data
     glNamedBufferData(buffer, static_cast<GLsizeiptr>(desc.size), data, toGLBufferUsage(desc.memory));
 
     m_buffers.push_back(OpenGLBuffer{.id = buffer, .usage = desc.usage, .memory = desc.memory, .size = desc.size});
-    return static_cast<BufferHandle>(m_buffers.size());
+    return makeHandle<BufferHandle>(m_buffers.size() - 1);
 }
 
 void OpenGLDevice::updateBuffer(BufferHandle buffer, size_t offset, const void* data, size_t size)

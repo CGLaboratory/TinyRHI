@@ -118,7 +118,7 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 || pipeline == 0) {
+    if (!vertexBuffer || !vertexShader || !fragmentShader || !layout || !pipeline) {
         std::printf("Failed to create triangle resources.\n");
         instance->shutdown();
         return 1;

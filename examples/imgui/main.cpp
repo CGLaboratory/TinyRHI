@@ -71,7 +71,7 @@ int main()
     const SwapchainHandle swapchainHandle = device->createSwapchain(surfaceHandle, SwapchainDesc{});
     auto* swapchain = device->getSwapchain(swapchainHandle);
     renderer.setSurfaceOwner(*instance);
-    if (surfaceHandle == 0 || swapchain == nullptr || !renderer.init(*device)) {
+    if (!surfaceHandle || swapchain == nullptr || !renderer.init(*device)) {
         std::printf("Failed to initialize ImGui TinyRHI renderer backend.\n");
         renderer.shutdown();
         platform.shutdown();

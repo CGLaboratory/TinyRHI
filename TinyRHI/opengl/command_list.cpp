@@ -124,8 +124,8 @@ void uploadPushConstantUniforms(GLuint program, uint32_t offset, uint32_t size, 
 
 void OpenGLCommandList::begin()
 {
-    m_current_pipeline = 0;
-    m_current_index_buffer = 0;
+    m_current_pipeline = {};
+    m_current_index_buffer = {};
     m_current_index_format = IndexFormat::UInt32;
     m_current_index_buffer_offset = 0;
 }
@@ -141,7 +141,7 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
 
     bool uses_swapchain = false;
     bool uses_offscreen_texture = false;
-    SwapchainHandle active_swapchain = 0;
+    SwapchainHandle active_swapchain;
     const auto inspectAttachment = [&](TextureViewHandle view, const char* label) {
         const auto* glView = m_device.getTextureView(view);
         const auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
@@ -151,12 +151,12 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
         }
 
         if (glTexture->is_swapchain_backbuffer) {
-            if (glTexture->swapchain == 0) {
+            if (!glTexture->swapchain) {
                 std::printf("OpenGL render pass begin failed: invalid swapchain %s attachment.\n", label);
                 return false;
             }
 
-            if (active_swapchain == 0) {
+            if (!active_swapchain) {
                 active_swapchain = glTexture->swapchain;
             } else if (active_swapchain != glTexture->swapchain) {
                 std::printf("OpenGL render pass begin failed: cannot mix multiple swapchains.\n");

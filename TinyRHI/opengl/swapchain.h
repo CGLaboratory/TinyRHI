@@ -28,12 +28,12 @@ public:
 
 private:
     OpenGLDevice& m_device;
-    SwapchainHandle m_handle{0};
-    SurfaceHandle m_surface{0};
+    SwapchainHandle m_handle{};
+    SurfaceHandle m_surface{};
     SwapchainDesc m_desc{};
     OpenGLNativeSwapchain m_native{};
-    TextureViewHandle m_color_view{0};
-    TextureViewHandle m_depth_stencil_view{0};
+    TextureViewHandle m_color_view{};
+    TextureViewHandle m_depth_stencil_view{};
     uint32_t m_width{0};
     uint32_t m_height{0};
 };

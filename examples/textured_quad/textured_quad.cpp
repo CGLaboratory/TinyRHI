@@ -196,9 +196,8 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || indexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || texture == 0
-        || textureView == 0 || sampler == 0 || bindGroupLayout == 0 || layout == 0 || bindGroup == 0
-        || pipeline == 0) {
+    if (!vertexBuffer || !indexBuffer || !vertexShader || !fragmentShader || !texture || !textureView || !sampler
+        || !bindGroupLayout || !layout || !bindGroup || !pipeline) {
         std::printf("Failed to create textured quad resources.\n");
         instance->shutdown();
         return 1;

@@ -9,30 +9,30 @@ namespace lunalite::rhi {
 SwapchainHandle OpenGLDevice::createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc)
 {
     if (getSurface(surface) == nullptr) {
-        return 0;
+        return {};
     }
 
-    SwapchainHandle handle = 0;
+    SwapchainHandle handle;
     for (size_t i = 0; i < m_swapchains.size(); ++i) {
         if (m_swapchains[i] == nullptr) {
-            handle = static_cast<SwapchainHandle>(i + 1);
+            handle = makeHandle<SwapchainHandle>(i);
             break;
         }
     }
 
-    if (handle == 0) {
-        handle = static_cast<SwapchainHandle>(m_swapchains.size() + 1);
+    if (!handle) {
+        handle = makeHandle<SwapchainHandle>(m_swapchains.size());
     }
 
     auto swapchain = std::make_unique<OpenGLSwapchain>(*this, handle, surface, desc);
     if (!swapchain->initialize()) {
-        return 0;
+        return {};
     }
 
-    if (handle > m_swapchains.size()) {
+    if (handle.value > m_swapchains.size()) {
         m_swapchains.push_back(std::move(swapchain));
     } else {
-        m_swapchains[handle - 1] = std::move(swapchain);
+        m_swapchains[handleIndex(handle)] = std::move(swapchain);
     }
 
     return handle;
@@ -44,7 +44,7 @@ void OpenGLDevice::destroySwapchain(SwapchainHandle swapchain)
         return;
     }
 
-    m_swapchains[swapchain - 1].reset();
+    m_swapchains[handleIndex(swapchain)].reset();
 }
 
 Swapchain* OpenGLDevice::getSwapchain(SwapchainHandle swapchain)
@@ -54,11 +54,11 @@ Swapchain* OpenGLDevice::getSwapchain(SwapchainHandle swapchain)
 
 OpenGLSwapchain* OpenGLDevice::getOpenGLSwapchain(SwapchainHandle handle)
 {
-    if (handle == 0 || handle > m_swapchains.size()) {
+    if (!handle || handle.value > m_swapchains.size()) {
         return nullptr;
     }
 
-    return m_swapchains[handle - 1].get();
+    return m_swapchains[handleIndex(handle)].get();
 }
 
 bool OpenGLDevice::ensureContextForSwapchain(OpenGLSwapchain& swapchain, bool vsync)
@@ -79,7 +79,7 @@ bool OpenGLDevice::makeSwapchainCurrent(SwapchainHandle swapchain)
 bool OpenGLDevice::makeAnySwapchainCurrent()
 {
     for (size_t i = 0; i < m_swapchains.size(); ++i) {
-        if (m_swapchains[i] != nullptr && makeSwapchainCurrent(static_cast<SwapchainHandle>(i + 1))) {
+        if (m_swapchains[i] != nullptr && makeSwapchainCurrent(makeHandle<SwapchainHandle>(i))) {
             return true;
         }
     }
@@ -109,14 +109,14 @@ OpenGLSwapchain::OpenGLSwapchain(OpenGLDevice& device,
 
 OpenGLSwapchain::~OpenGLSwapchain()
 {
-    if (m_color_view != 0) {
+    if (m_color_view) {
         m_device.destroyTextureView(m_color_view);
-        m_color_view = 0;
+        m_color_view = {};
     }
 
-    if (m_depth_stencil_view != 0) {
+    if (m_depth_stencil_view) {
         m_device.destroyTextureView(m_depth_stencil_view);
-        m_depth_stencil_view = 0;
+        m_depth_stencil_view = {};
     }
 
     m_device.releaseNativeSwapchain(m_native);

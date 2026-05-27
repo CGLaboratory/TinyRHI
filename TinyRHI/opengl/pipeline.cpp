@@ -25,19 +25,19 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
 {
     if (getPipelineLayout(desc.layout) == nullptr) {
         std::printf("OpenGL pipeline creation failed: invalid pipeline layout handle.\n");
-        return 0;
+        return {};
     }
 
     if (desc.render_target_state.color_targets.empty() && !desc.render_target_state.has_depth_stencil) {
         std::printf("OpenGL pipeline creation failed: render target state has no attachments.\n");
-        return 0;
+        return {};
     }
 
     const auto* vertexShader = getShader(desc.vertex_shader);
     const auto* fragmentShader = getShader(desc.fragment_shader);
     if (vertexShader == nullptr || fragmentShader == nullptr) {
         std::printf("OpenGL pipeline creation failed: invalid shader handle.\n");
-        return 0;
+        return {};
     }
 
     GLuint program = glCreateProgram();
@@ -50,7 +50,7 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
     if (success != GL_TRUE) {
         logProgramError(program);
         glDeleteProgram(program);
-        return 0;
+        return {};
     }
 
     GLuint vao = 0;
@@ -91,7 +91,7 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
         .depth_state = desc.depth_state,
         .raster_state = desc.raster_state,
     });
-    return static_cast<PipelineHandle>(m_pipelines.size());
+    return makeHandle<PipelineHandle>(m_pipelines.size() - 1);
 }
 
 void OpenGLDevice::destroyPipeline(PipelineHandle pipeline)

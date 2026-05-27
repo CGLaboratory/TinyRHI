@@ -134,8 +134,7 @@ int main()
     pipelineDesc.depth_state.compare = CompareOp::Less;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (vertexBuffer == 0 || indexBuffer == 0 || vertexShader == 0 || fragmentShader == 0 || layout == 0 ||
-        pipeline == 0) {
+    if (!vertexBuffer || !indexBuffer || !vertexShader || !fragmentShader || !layout || !pipeline) {
         std::printf("Failed to create depth test resources.\n");
         instance->shutdown();
         return 1;

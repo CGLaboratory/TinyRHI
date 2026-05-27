@@ -15,7 +15,7 @@ TINYRHI_TEST_CASE("pipeline layout rejects zero sized push constant ranges")
         .size = 0,
     });
 
-    TINYRHI_CHECK(device.createPipelineLayout(desc) == 0);
+    TINYRHI_CHECK(!device.createPipelineLayout(desc));
 }
 
 TINYRHI_TEST_CASE("pipeline layout rejects push constant ranges without stages")
@@ -29,7 +29,7 @@ TINYRHI_TEST_CASE("pipeline layout rejects push constant ranges without stages")
         .size = 16,
     });
 
-    TINYRHI_CHECK(device.createPipelineLayout(desc) == 0);
+    TINYRHI_CHECK(!device.createPipelineLayout(desc));
 }
 
 TINYRHI_TEST_CASE("pipeline layout rejects overlapping push constant ranges in the same stage")
@@ -48,7 +48,7 @@ TINYRHI_TEST_CASE("pipeline layout rejects overlapping push constant ranges in t
         .size = 16,
     });
 
-    TINYRHI_CHECK(device.createPipelineLayout(desc) == 0);
+    TINYRHI_CHECK(!device.createPipelineLayout(desc));
 }
 
 TINYRHI_TEST_CASE("pipeline layout rejects overflowing push constant ranges")
@@ -62,7 +62,7 @@ TINYRHI_TEST_CASE("pipeline layout rejects overflowing push constant ranges")
         .size = 32,
     });
 
-    TINYRHI_CHECK(device.createPipelineLayout(desc) == 0);
+    TINYRHI_CHECK(!device.createPipelineLayout(desc));
 }
 
 TINYRHI_TEST_CASE("pipeline layout allows adjacent push constant ranges in the same stage")
@@ -81,7 +81,7 @@ TINYRHI_TEST_CASE("pipeline layout allows adjacent push constant ranges in the s
         .size = 16,
     });
 
-    TINYRHI_CHECK(device.createPipelineLayout(desc) != 0);
+    TINYRHI_CHECK(!!device.createPipelineLayout(desc));
 }
 
 TINYRHI_TEST_CASE("pipeline layout allows overlapping push constant ranges in different stages")
@@ -100,5 +100,5 @@ TINYRHI_TEST_CASE("pipeline layout allows overlapping push constant ranges in di
         .size = 16,
     });
 
-    TINYRHI_CHECK(device.createPipelineLayout(desc) != 0);
+    TINYRHI_CHECK(!!device.createPipelineLayout(desc));
 }
