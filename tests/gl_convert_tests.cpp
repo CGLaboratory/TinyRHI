@@ -34,6 +34,9 @@ TINYRHI_TEST_CASE("render states map to OpenGL enums")
 
 TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 {
+    TINYRHI_CHECK(toGLTextureTarget(TextureDimension::Texture2D) == GL_TEXTURE_2D);
+    TINYRHI_CHECK(toGLTextureTarget(TextureDimension::TextureCube) == GL_TEXTURE_CUBE_MAP);
+
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_SRGB) == GL_SRGB8_ALPHA8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA16F) == GL_RGBA16F);
@@ -43,10 +46,14 @@ TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8_SRGB) == GL_RGBA);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA16F) == GL_RGBA);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA32F) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH_STENCIL);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth32F) == GL_DEPTH_COMPONENT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8_UNorm) == GL_UNSIGNED_BYTE);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8_SRGB) == GL_UNSIGNED_BYTE);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA16F) == GL_HALF_FLOAT);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA32F) == GL_FLOAT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth24Stencil8) == GL_UNSIGNED_INT_24_8);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth32F) == GL_FLOAT);
     TINYRHI_CHECK(!isSRGBFormat(TextureFormat::RGBA8_UNorm));

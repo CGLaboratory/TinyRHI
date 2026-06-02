@@ -37,20 +37,26 @@ uint32_t textureMipDimension(uint32_t baseDimension, uint32_t mipLevel)
 
 TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
 {
+    const TextureDesc normalizedDesc = normalizeTextureDesc(desc);
+    if (!textureDescValid(normalizedDesc)) {
+        return {};
+    }
+
     GLuint texture = 0;
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    glCreateTextures(toGLTextureTarget(normalizedDesc.dimension), 1, &texture);
     glTextureStorage2D(texture,
-                       static_cast<GLsizei>(desc.mip_levels),
-                       toGLTextureInternalFormat(desc.format),
-                       static_cast<GLsizei>(desc.width),
-                       static_cast<GLsizei>(desc.height));
+                       static_cast<GLsizei>(normalizedDesc.mip_levels),
+                       toGLTextureInternalFormat(normalizedDesc.format),
+                       static_cast<GLsizei>(normalizedDesc.width),
+                       static_cast<GLsizei>(normalizedDesc.height));
 
     glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    m_textures.push_back(OpenGLTexture{.id = texture, .desc = desc, .is_swapchain_backbuffer = false});
+    m_textures.push_back(OpenGLTexture{.id = texture, .desc = normalizedDesc, .is_swapchain_backbuffer = false});
     return makeHandle<TextureHandle>(m_textures.size() - 1);
 }
 
@@ -58,7 +64,8 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
 {
     auto* glTexture = getTexture(texture);
     if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || desc.data == nullptr || desc.width == 0 ||
-        desc.height == 0 || desc.mip_level >= glTexture->desc.mip_levels) {
+        desc.height == 0 || desc.mip_level >= glTexture->desc.mip_levels ||
+        desc.array_layer >= glTexture->desc.array_layers) {
         return;
     }
 
@@ -82,15 +89,29 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bytesPerPixel));
-    glTextureSubImage2D(glTexture->id,
-                        static_cast<GLint>(desc.mip_level),
-                        static_cast<GLint>(desc.x),
-                        static_cast<GLint>(desc.y),
-                        static_cast<GLsizei>(desc.width),
-                        static_cast<GLsizei>(desc.height),
-                        toGLTextureUploadFormat(desc.format),
-                        toGLTextureUploadType(desc.format),
-                        desc.data);
+    if (glTexture->desc.dimension == TextureDimension::TextureCube) {
+        glTextureSubImage3D(glTexture->id,
+                            static_cast<GLint>(desc.mip_level),
+                            static_cast<GLint>(desc.x),
+                            static_cast<GLint>(desc.y),
+                            static_cast<GLint>(desc.array_layer),
+                            static_cast<GLsizei>(desc.width),
+                            static_cast<GLsizei>(desc.height),
+                            1,
+                            toGLTextureUploadFormat(desc.format),
+                            toGLTextureUploadType(desc.format),
+                            desc.data);
+    } else {
+        glTextureSubImage2D(glTexture->id,
+                            static_cast<GLint>(desc.mip_level),
+                            static_cast<GLint>(desc.x),
+                            static_cast<GLint>(desc.y),
+                            static_cast<GLsizei>(desc.width),
+                            static_cast<GLsizei>(desc.height),
+                            toGLTextureUploadFormat(desc.format),
+                            toGLTextureUploadType(desc.format),
+                            desc.data);
+    }
 
     glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
     glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
@@ -120,12 +141,13 @@ void OpenGLDevice::destroyTexture(TextureHandle texture)
 TextureViewHandle OpenGLDevice::createTextureView(const TextureViewDesc& desc)
 {
     auto* glTexture = getTexture(desc.texture);
-    if (glTexture == nullptr) {
+    if (glTexture == nullptr || !textureViewDescValid(glTexture->desc, desc)) {
         return {};
     }
 
     m_texture_views.push_back(OpenGLTextureView{
         .texture = desc.texture,
+        .view_dimension = desc.view_dimension,
         .format = desc.format,
         .aspect = desc.aspect,
         .base_mip_level = desc.base_mip_level,

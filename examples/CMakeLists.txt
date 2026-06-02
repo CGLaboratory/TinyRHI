@@ -5,6 +5,8 @@ endif()
 
 set(TINYRHI_EXAMPLES_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
+add_subdirectory(common/stb)
+
 function(tinyrhi_add_example target)
     add_executable(${target}
         ${ARGN}
@@ -31,6 +33,7 @@ add_subdirectory(dynamic_uniform_offsets)
 add_subdirectory(multi_vertex_buffers)
 add_subdirectory(push_constants)
 add_subdirectory(textured_quad)
+add_subdirectory(cube_map)
 add_subdirectory(depth_test)
 add_subdirectory(alpha_blend)
 add_subdirectory(line_grid)

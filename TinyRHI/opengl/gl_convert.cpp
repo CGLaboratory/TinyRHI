@@ -177,6 +177,18 @@ GLenum toGLAddressMode(AddressMode mode)
     return GL_CLAMP_TO_EDGE;
 }
 
+GLenum toGLTextureTarget(TextureDimension dimension)
+{
+    switch (dimension) {
+        case TextureDimension::Texture2D:
+            return GL_TEXTURE_2D;
+        case TextureDimension::TextureCube:
+            return GL_TEXTURE_CUBE_MAP;
+    }
+
+    return GL_TEXTURE_2D;
+}
+
 GLenum toGLTextureInternalFormat(TextureFormat format)
 {
     switch (format) {

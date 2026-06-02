@@ -136,6 +136,32 @@ bool pushConstantRangesValid(const std::vector<PushConstantRange>& ranges)
 
     return true;
 }
+
+bool attachFramebufferTextureView(GLuint framebuffer,
+                                  GLenum attachment,
+                                  const OpenGLTexture& texture,
+                                  const OpenGLTextureView& view)
+{
+    if (texture.desc.dimension == TextureDimension::TextureCube) {
+        if (view.view_dimension != TextureViewDimension::Texture2D || view.array_layer_count != 1) {
+            return false;
+        }
+
+        glNamedFramebufferTextureLayer(framebuffer,
+                                       attachment,
+                                       texture.id,
+                                       static_cast<GLint>(view.base_mip_level),
+                                       static_cast<GLint>(view.base_array_layer));
+        return true;
+    }
+
+    if (view.view_dimension != TextureViewDimension::Texture2D) {
+        return false;
+    }
+
+    glNamedFramebufferTexture(framebuffer, attachment, texture.id, view.base_mip_level);
+    return true;
+}
 } // namespace
 
 OpenGLDevice::OpenGLDevice(SurfaceResolver surface_resolver)
@@ -482,7 +508,10 @@ GLuint OpenGLDevice::getFramebuffer(const RenderPassBeginInfo& info)
         }
 
         const auto attachment = static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i);
-        glNamedFramebufferTexture(framebuffer, attachment, colorTexture->id, colorView->base_mip_level);
+        if (!attachFramebufferTextureView(framebuffer, attachment, *colorTexture, *colorView)) {
+            glDeleteFramebuffers(1, &framebuffer);
+            return 0;
+        }
         colorViews.push_back(info.color_attachments[i].view);
         drawBuffers.push_back(attachment);
     }
@@ -504,7 +533,10 @@ GLuint OpenGLDevice::getFramebuffer(const RenderPassBeginInfo& info)
             return 0;
         }
 
-        glNamedFramebufferTexture(framebuffer, toGLAttachment(depthView->format), depthTexture->id, depthView->base_mip_level);
+        if (!attachFramebufferTextureView(framebuffer, toGLAttachment(depthView->format), *depthTexture, *depthView)) {
+            glDeleteFramebuffers(1, &framebuffer);
+            return 0;
+        }
         depthStencilViewHandle = info.depth_stencil_attachment.view;
     }
 

@@ -32,6 +32,66 @@ TINYRHI_TEST_CASE("texture aspect depth stencil contains depth and stencil")
     TINYRHI_CHECK((TextureAspect::DepthStencil & TextureAspect::Color) == TextureAspect::None);
 }
 
+TINYRHI_TEST_CASE("texture cube descriptors normalize and validate")
+{
+    const TextureDesc texture2D{};
+    TINYRHI_CHECK(textureDescValid(texture2D));
+
+    TextureDesc texture2DArray = texture2D;
+    texture2DArray.array_layers = 6;
+    TINYRHI_CHECK(!textureDescValid(texture2DArray));
+
+    TextureDesc cubeDesc = normalizeTextureDesc(TextureDesc{
+        .width = 128,
+        .height = 128,
+        .dimension = TextureDimension::TextureCube,
+        .format = TextureFormat::RGBA16F,
+        .usage = TextureUsage::Sampled | TextureUsage::RenderTarget,
+        .mip_levels = 5,
+    });
+    TINYRHI_CHECK(cubeDesc.array_layers == 6);
+    TINYRHI_CHECK(textureDescValid(cubeDesc));
+
+    TextureDesc nonsquareCube = cubeDesc;
+    nonsquareCube.height = 64;
+    TINYRHI_CHECK(!textureDescValid(nonsquareCube));
+
+    TextureDesc shortCube = cubeDesc;
+    shortCube.array_layers = 5;
+    TINYRHI_CHECK(!textureDescValid(shortCube));
+
+    TINYRHI_CHECK(textureViewDescValid(cubeDesc,
+                                       TextureViewDesc{
+                                           .view_dimension = TextureViewDimension::TextureCube,
+                                           .format = TextureFormat::RGBA16F,
+                                           .mip_level_count = 5,
+                                           .array_layer_count = 6,
+                                       }));
+    TINYRHI_CHECK(textureViewDescValid(cubeDesc,
+                                       TextureViewDesc{
+                                           .view_dimension = TextureViewDimension::Texture2D,
+                                           .format = TextureFormat::RGBA16F,
+                                           .base_mip_level = 2,
+                                           .mip_level_count = 1,
+                                           .base_array_layer = 3,
+                                           .array_layer_count = 1,
+                                       }));
+    TINYRHI_CHECK(!textureViewDescValid(cubeDesc,
+                                        TextureViewDesc{
+                                            .view_dimension = TextureViewDimension::TextureCube,
+                                            .format = TextureFormat::RGBA16F,
+                                            .base_array_layer = 1,
+                                            .array_layer_count = 6,
+                                        }));
+    TINYRHI_CHECK(!textureViewDescValid(cubeDesc,
+                                        TextureViewDesc{
+                                            .view_dimension = TextureViewDimension::Texture2D,
+                                            .format = TextureFormat::RGBA16F,
+                                            .base_array_layer = 3,
+                                            .array_layer_count = 2,
+                                        }));
+}
+
 TINYRHI_TEST_CASE("buffer usage flags preserve individual bits")
 {
     BufferUsage usage = BufferUsage::Vertex;

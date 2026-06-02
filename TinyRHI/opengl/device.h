@@ -47,6 +47,7 @@ struct OpenGLTexture {
 
 struct OpenGLTextureView {
     TextureHandle texture{};
+    TextureViewDimension view_dimension{TextureViewDimension::Texture2D};
     TextureFormat format{TextureFormat::RGBA8_UNorm};
     TextureAspect aspect{TextureAspect::Color};
     uint32_t base_mip_level{0};

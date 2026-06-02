@@ -23,6 +23,7 @@ GLenum toGLBlendOp(BlendOp op);
 GLenum toGLFilterMode(FilterMode mode);
 GLenum toGLMinFilter(FilterMode minFilter, MipFilter mipFilter);
 GLenum toGLAddressMode(AddressMode mode);
+GLenum toGLTextureTarget(TextureDimension dimension);
 GLenum toGLTextureInternalFormat(TextureFormat format);
 GLenum toGLTextureUploadFormat(TextureFormat format);
 GLenum toGLTextureUploadType(TextureFormat format);
