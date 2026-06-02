@@ -2,8 +2,8 @@
 #include "device.h"
 #include "gl_convert.h"
 
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 
 #include <glad/glad.h>
 #include <vector>
@@ -239,8 +239,12 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
     }
 
     if (info.has_depth_stencil_attachment && info.depth_stencil_attachment.depth_load_op == LoadOp::Clear) {
+        GLboolean previousDepthMask = GL_TRUE;
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
+        glDepthMask(GL_TRUE);
         const float clearDepth = info.depth_stencil_attachment.clear_depth;
         glClearBufferfv(GL_DEPTH, 0, &clearDepth);
+        glDepthMask(previousDepthMask);
     }
 }
 
@@ -292,9 +296,7 @@ void OpenGLCommandList::setPipeline(PipelineHandle pipeline)
                                  toGLBlendFactor(target.blend.dst_color),
                                  toGLBlendFactor(target.blend.src_alpha),
                                  toGLBlendFactor(target.blend.dst_alpha));
-            glBlendEquationSeparatei(i,
-                                     toGLBlendOp(target.blend.color_op),
-                                     toGLBlendOp(target.blend.alpha_op));
+            glBlendEquationSeparatei(i, toGLBlendOp(target.blend.color_op), toGLBlendOp(target.blend.alpha_op));
         } else {
             glDisablei(GL_BLEND, i);
         }
@@ -313,14 +315,14 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
     }
 
     auto* pipelineLayout = m_device.getPipelineLayout(glPipeline->layout);
-    if (pipelineLayout == nullptr || set >= pipelineLayout->desc.bind_group_layouts.size()
-        || pipelineLayout->desc.bind_group_layouts[set] != glGroup->layout) {
+    if (pipelineLayout == nullptr || set >= pipelineLayout->desc.bind_group_layouts.size() ||
+        pipelineLayout->desc.bind_group_layouts[set] != glGroup->layout) {
         return;
     }
 
     auto* groupLayout = m_device.getBindGroupLayout(glGroup->layout);
-    if (groupLayout == nullptr || dynamicOffsetCount(groupLayout->desc) != dynamic_offset_count
-        || (dynamic_offset_count > 0 && dynamic_offsets == nullptr)) {
+    if (groupLayout == nullptr || dynamicOffsetCount(groupLayout->desc) != dynamic_offset_count ||
+        (dynamic_offset_count > 0 && dynamic_offsets == nullptr)) {
         return;
     }
 
@@ -430,11 +432,8 @@ void OpenGLCommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer, size
 
     for (const auto& bufferLayout : glPipeline->vertex_input.buffers) {
         if (bufferLayout.binding == slot) {
-            glVertexArrayVertexBuffer(glPipeline->vao,
-                                      slot,
-                                      glBuffer->id,
-                                      static_cast<GLintptr>(offset),
-                                      bufferLayout.stride);
+            glVertexArrayVertexBuffer(
+                glPipeline->vao, slot, glBuffer->id, static_cast<GLintptr>(offset), bufferLayout.stride);
             return;
         }
     }
@@ -543,7 +542,8 @@ void OpenGLCommandList::drawIndexed(uint32_t index_count, uint32_t first_index, 
         return;
     }
 
-    const auto offset = m_current_index_buffer_offset + static_cast<uintptr_t>(first_index) * indexFormatSize(m_current_index_format);
+    const auto offset =
+        m_current_index_buffer_offset + static_cast<uintptr_t>(first_index) * indexFormatSize(m_current_index_format);
     glDrawElementsBaseVertex(glPipeline->topology,
                              static_cast<GLsizei>(index_count),
                              toGLIndexFormat(m_current_index_format),
