@@ -7,8 +7,8 @@
 namespace lunalite::rhi {
 
 enum class TextureFormat {
-    RGBA8,
-    RGBA32,
+    RGBA8_UNorm,
+    RGBA8_SRGB,
     RGBA16F,
     RGBA32F,
     Depth24Stencil8,
@@ -61,14 +61,14 @@ constexpr TextureAspect operator&(TextureAspect lhs, TextureAspect rhs)
 struct TextureDesc {
     uint32_t width{1};
     uint32_t height{1};
-    TextureFormat format{TextureFormat::RGBA8};
+    TextureFormat format{TextureFormat::RGBA8_UNorm};
     TextureUsage usage{TextureUsage::Sampled};
     uint32_t mip_levels{1};
 };
 
 struct TextureViewDesc {
     TextureHandle texture{};
-    TextureFormat format{TextureFormat::RGBA8};
+    TextureFormat format{TextureFormat::RGBA8_UNorm};
     TextureAspect aspect{TextureAspect::Color};
     uint32_t base_mip_level{0};
     uint32_t mip_level_count{1};
@@ -81,7 +81,8 @@ struct TextureUploadDesc {
     uint32_t y{0};
     uint32_t width{0};
     uint32_t height{0};
-    TextureFormat format{TextureFormat::RGBA8};
+    uint32_t mip_level{0};
+    TextureFormat format{TextureFormat::RGBA8_UNorm};
     const void* data{nullptr};
     size_t row_pitch{0};
 };

@@ -196,10 +196,11 @@ SamplerHandle OpenGLDevice::createSampler(const SamplerDesc& desc)
 {
     GLuint sampler = 0;
     glCreateSamplers(1, &sampler);
-    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, toGLFilterMode(desc.min_filter));
+    glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, toGLMinFilter(desc.min_filter, desc.mip_filter));
     glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, toGLFilterMode(desc.mag_filter));
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, toGLAddressMode(desc.address_u));
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, toGLAddressMode(desc.address_v));
+    glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, toGLAddressMode(desc.address_w));
 
     m_samplers.push_back(OpenGLSampler{.id = sampler, .desc = desc});
     return makeHandle<SamplerHandle>(m_samplers.size() - 1);

@@ -8,8 +8,8 @@ namespace {
 size_t textureFormatBytesPerPixel(TextureFormat format)
 {
     switch (format) {
-        case TextureFormat::RGBA8:
-        case TextureFormat::RGBA32:
+        case TextureFormat::RGBA8_UNorm:
+        case TextureFormat::RGBA8_SRGB:
             return 4;
         case TextureFormat::RGBA16F:
             return 8;
@@ -22,6 +22,16 @@ size_t textureFormatBytesPerPixel(TextureFormat format)
     }
 
     return 4;
+}
+
+uint32_t textureMipDimension(uint32_t baseDimension, uint32_t mipLevel)
+{
+    uint32_t dimension = baseDimension;
+    for (uint32_t level = 0; level < mipLevel && dimension > 1; ++level) {
+        dimension /= 2;
+    }
+
+    return dimension == 0 ? 1 : dimension;
 }
 } // namespace
 
@@ -48,7 +58,14 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
 {
     auto* glTexture = getTexture(texture);
     if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || desc.data == nullptr || desc.width == 0 ||
-        desc.height == 0 || desc.x + desc.width > glTexture->desc.width || desc.y + desc.height > glTexture->desc.height) {
+        desc.height == 0 || desc.mip_level >= glTexture->desc.mip_levels) {
+        return;
+    }
+
+    const uint32_t mipWidth = textureMipDimension(glTexture->desc.width, desc.mip_level);
+    const uint32_t mipHeight = textureMipDimension(glTexture->desc.height, desc.mip_level);
+    if (desc.x > mipWidth || desc.y > mipHeight || desc.width > mipWidth - desc.x ||
+        desc.height > mipHeight - desc.y) {
         return;
     }
 
@@ -66,7 +83,7 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bytesPerPixel));
     glTextureSubImage2D(glTexture->id,
-                        0,
+                        static_cast<GLint>(desc.mip_level),
                         static_cast<GLint>(desc.x),
                         static_cast<GLint>(desc.y),
                         static_cast<GLsizei>(desc.width),
@@ -77,6 +94,16 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
 
     glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
     glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
+}
+
+void OpenGLDevice::generateMipmaps(TextureHandle texture)
+{
+    auto* glTexture = getTexture(texture);
+    if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || isDepthFormat(glTexture->desc.format)) {
+        return;
+    }
+
+    glGenerateTextureMipmap(glTexture->id);
 }
 
 void OpenGLDevice::destroyTexture(TextureHandle texture)

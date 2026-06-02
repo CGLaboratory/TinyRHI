@@ -47,7 +47,7 @@ struct OpenGLTexture {
 
 struct OpenGLTextureView {
     TextureHandle texture{};
-    TextureFormat format{TextureFormat::RGBA8};
+    TextureFormat format{TextureFormat::RGBA8_UNorm};
     TextureAspect aspect{TextureAspect::Color};
     uint32_t base_mip_level{0};
     uint32_t mip_level_count{1};
@@ -97,6 +97,7 @@ public:
 
     TextureHandle createTexture(const TextureDesc& desc) override;
     void updateTexture(TextureHandle texture, const TextureUploadDesc& desc) override;
+    void generateMipmaps(TextureHandle texture) override;
     void destroyTexture(TextureHandle texture) override;
 
     TextureViewHandle createTextureView(const TextureViewDesc& desc) override;

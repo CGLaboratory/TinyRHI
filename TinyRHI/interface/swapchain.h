@@ -6,7 +6,7 @@
 
 namespace lunalite::rhi {
 struct SwapchainDesc {
-    TextureFormat color_format{TextureFormat::RGBA8};
+    TextureFormat color_format{TextureFormat::RGBA8_UNorm};
     TextureFormat depth_stencil_format{TextureFormat::Depth24Stencil8};
     bool enable_depth_stencil{true};
     bool vsync{true};

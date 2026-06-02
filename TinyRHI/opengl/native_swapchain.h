@@ -15,7 +15,7 @@ struct OpenGLNativeSwapchain {
     void* drawable{nullptr};
 };
 
-bool createOpenGLNativeSwapchain(const NativeSurfaceHandle& native, OpenGLNativeSwapchain& swapchain);
+bool createOpenGLNativeSwapchain(const NativeSurfaceHandle& native, OpenGLNativeSwapchain& swapchain, bool prefer_srgb);
 void destroyOpenGLNativeSwapchain(OpenGLNativeContext& context, OpenGLNativeSwapchain& swapchain);
 
 bool ensureOpenGLNativeContext(OpenGLNativeContext& context, OpenGLNativeSwapchain& swapchain, bool vsync);

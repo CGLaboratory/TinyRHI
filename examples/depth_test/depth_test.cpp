@@ -128,7 +128,7 @@ int main()
     pipelineDesc.layout = layout;
     pipelineDesc.vertex_shader = vertexShader;
     pipelineDesc.fragment_shader = fragmentShader;
-    pipelineDesc.render_target_state.color_targets.push_back(ColorTargetState{.format = TextureFormat::RGBA8});
+    pipelineDesc.render_target_state.color_targets.push_back(ColorTargetState{.format = TextureFormat::RGBA8_UNorm});
     pipelineDesc.depth_state.enabled = true;
     pipelineDesc.depth_state.write_enabled = true;
     pipelineDesc.depth_state.compare = CompareOp::Less;

@@ -509,7 +509,7 @@ bool TinyRHIImGuiRenderer::createStaticResources()
     pipelineDesc.layout = m_pipeline_layout;
     pipelineDesc.vertex_shader = m_vertex_shader;
     pipelineDesc.fragment_shader = m_fragment_shader;
-    ColorTargetState colorTarget{.format = TextureFormat::RGBA8};
+    ColorTargetState colorTarget{.format = TextureFormat::RGBA8_UNorm};
     colorTarget.blend.enabled = true;
     pipelineDesc.render_target_state.color_targets.push_back(colorTarget);
     pipelineDesc.depth_state.enabled = false;
@@ -533,12 +533,12 @@ bool TinyRHIImGuiRenderer::createFontTexture()
     m_font_texture = m_device->createTexture(TextureDesc{
         .width = static_cast<uint32_t>(width),
         .height = static_cast<uint32_t>(height),
-        .format = TextureFormat::RGBA32,
+        .format = TextureFormat::RGBA8_UNorm,
         .usage = TextureUsage::Sampled | TextureUsage::CopyDst,
     });
     m_font_texture_view = m_device->createTextureView(TextureViewDesc{
         .texture = m_font_texture,
-        .format = TextureFormat::RGBA32,
+        .format = TextureFormat::RGBA8_UNorm,
         .aspect = TextureAspect::Color,
     });
 
@@ -559,7 +559,7 @@ bool TinyRHIImGuiRenderer::createFontTexture()
     TextureUploadDesc upload{};
     upload.width = static_cast<uint32_t>(width);
     upload.height = static_cast<uint32_t>(height);
-    upload.format = TextureFormat::RGBA32;
+    upload.format = TextureFormat::RGBA8_UNorm;
     upload.data = pixels;
     upload.row_pitch = static_cast<size_t>(width) * static_cast<size_t>(bytesPerPixel);
     m_device->updateTexture(m_font_texture, upload);

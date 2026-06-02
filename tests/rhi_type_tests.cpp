@@ -65,6 +65,6 @@ TINYRHI_TEST_CASE("pipeline state defaults are renderable")
     TINYRHI_CHECK(raster.cull_mode == CullMode::None);
     TINYRHI_CHECK(raster.front_face == FrontFace::CounterClockwise);
     TINYRHI_CHECK(!blend.enabled);
-    TINYRHI_CHECK(colorTarget.format == TextureFormat::RGBA8);
+    TINYRHI_CHECK(colorTarget.format == TextureFormat::RGBA8_UNorm);
     TINYRHI_CHECK(colorTarget.write_mask == ColorWriteMask::All);
 }

@@ -199,6 +199,17 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
+    bool encodeSrgb = false;
+    for (const auto& color : info.color_attachments) {
+        const auto* glView = m_device.getTextureView(color.view);
+        encodeSrgb = encodeSrgb || (glView != nullptr && isSRGBFormat(glView->format));
+    }
+    if (encodeSrgb) {
+        glEnable(GL_FRAMEBUFFER_SRGB);
+    } else {
+        glDisable(GL_FRAMEBUFFER_SRGB);
+    }
+
     if (uses_swapchain) {
         if (info.color_attachments.empty()) {
             glDrawBuffer(GL_NONE);
@@ -236,6 +247,7 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
 void OpenGLCommandList::endRenderPass()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_FRAMEBUFFER_SRGB);
 }
 
 void OpenGLCommandList::setPipeline(PipelineHandle pipeline)

@@ -126,7 +126,7 @@ int main()
     pipelineDesc.layout = layout;
     pipelineDesc.vertex_shader = vertexShader;
     pipelineDesc.fragment_shader = fragmentShader;
-    ColorTargetState colorTarget{.format = TextureFormat::RGBA8};
+    ColorTargetState colorTarget{.format = TextureFormat::RGBA8_UNorm};
     colorTarget.blend.enabled = true;
     pipelineDesc.render_target_state.color_targets.push_back(colorTarget);
     pipelineDesc.depth_state.enabled = false;

@@ -149,6 +149,20 @@ GLenum toGLFilterMode(FilterMode mode)
     return GL_LINEAR;
 }
 
+GLenum toGLMinFilter(FilterMode minFilter, MipFilter mipFilter)
+{
+    switch (mipFilter) {
+        case MipFilter::None:
+            return toGLFilterMode(minFilter);
+        case MipFilter::Nearest:
+            return minFilter == FilterMode::Nearest ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_NEAREST;
+        case MipFilter::Linear:
+            return minFilter == FilterMode::Nearest ? GL_NEAREST_MIPMAP_LINEAR : GL_LINEAR_MIPMAP_LINEAR;
+    }
+
+    return GL_LINEAR;
+}
+
 GLenum toGLAddressMode(AddressMode mode)
 {
     switch (mode) {
@@ -156,6 +170,8 @@ GLenum toGLAddressMode(AddressMode mode)
             return GL_REPEAT;
         case AddressMode::ClampToEdge:
             return GL_CLAMP_TO_EDGE;
+        case AddressMode::MirroredRepeat:
+            return GL_MIRRORED_REPEAT;
     }
 
     return GL_CLAMP_TO_EDGE;
@@ -164,9 +180,10 @@ GLenum toGLAddressMode(AddressMode mode)
 GLenum toGLTextureInternalFormat(TextureFormat format)
 {
     switch (format) {
-        case TextureFormat::RGBA8:
-        case TextureFormat::RGBA32:
+        case TextureFormat::RGBA8_UNorm:
             return GL_RGBA8;
+        case TextureFormat::RGBA8_SRGB:
+            return GL_SRGB8_ALPHA8;
         case TextureFormat::RGBA16F:
             return GL_RGBA16F;
         case TextureFormat::RGBA32F:
@@ -183,8 +200,8 @@ GLenum toGLTextureInternalFormat(TextureFormat format)
 GLenum toGLTextureUploadFormat(TextureFormat format)
 {
     switch (format) {
-        case TextureFormat::RGBA8:
-        case TextureFormat::RGBA32:
+        case TextureFormat::RGBA8_UNorm:
+        case TextureFormat::RGBA8_SRGB:
         case TextureFormat::RGBA16F:
         case TextureFormat::RGBA32F:
             return GL_RGBA;
@@ -200,8 +217,8 @@ GLenum toGLTextureUploadFormat(TextureFormat format)
 GLenum toGLTextureUploadType(TextureFormat format)
 {
     switch (format) {
-        case TextureFormat::RGBA8:
-        case TextureFormat::RGBA32:
+        case TextureFormat::RGBA8_UNorm:
+        case TextureFormat::RGBA8_SRGB:
             return GL_UNSIGNED_BYTE;
         case TextureFormat::RGBA16F:
             return GL_HALF_FLOAT;
@@ -223,8 +240,8 @@ GLenum toGLAttachment(TextureFormat format)
             return GL_DEPTH_STENCIL_ATTACHMENT;
         case TextureFormat::Depth32F:
             return GL_DEPTH_ATTACHMENT;
-        case TextureFormat::RGBA8:
-        case TextureFormat::RGBA32:
+        case TextureFormat::RGBA8_UNorm:
+        case TextureFormat::RGBA8_SRGB:
         case TextureFormat::RGBA16F:
         case TextureFormat::RGBA32F:
             return GL_COLOR_ATTACHMENT0;
@@ -236,6 +253,11 @@ GLenum toGLAttachment(TextureFormat format)
 bool isDepthFormat(TextureFormat format)
 {
     return format == TextureFormat::Depth24Stencil8 || format == TextureFormat::Depth32F;
+}
+
+bool isSRGBFormat(TextureFormat format)
+{
+    return format == TextureFormat::RGBA8_SRGB;
 }
 
 uint32_t vertexFormatComponentCount(VertexFormat format)

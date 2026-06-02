@@ -136,7 +136,7 @@ constexpr ColorWriteMask operator&(ColorWriteMask lhs, ColorWriteMask rhs)
 }
 
 struct ColorTargetState {
-    TextureFormat format{TextureFormat::RGBA8};
+    TextureFormat format{TextureFormat::RGBA8_UNorm};
     BlendState blend{};
     ColorWriteMask write_mask{ColorWriteMask::All};
 };

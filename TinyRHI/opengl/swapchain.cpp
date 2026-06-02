@@ -1,6 +1,7 @@
 #include "swapchain.h"
 
 #include "device.h"
+#include "gl_convert.h"
 
 #include <memory>
 
@@ -129,7 +130,7 @@ bool OpenGLSwapchain::initialize()
         return false;
     }
 
-    if (!createOpenGLNativeSwapchain(surface->getNativeHandle(), m_native)) {
+    if (!createOpenGLNativeSwapchain(surface->getNativeHandle(), m_native, isSRGBFormat(m_desc.color_format))) {
         return false;
     }
 

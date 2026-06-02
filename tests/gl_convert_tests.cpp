@@ -34,21 +34,37 @@ TINYRHI_TEST_CASE("render states map to OpenGL enums")
 
 TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 {
-    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8) == GL_RGBA8);
-    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA32) == GL_RGBA8);
+    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA8);
+    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_SRGB) == GL_SRGB8_ALPHA8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA16F) == GL_RGBA16F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA32F) == GL_RGBA32F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH24_STENCIL8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::Depth32F) == GL_DEPTH_COMPONENT32F);
 
-    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8) == GL_RGBA);
-    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA32) == GL_RGBA);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8_SRGB) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH_STENCIL);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth32F) == GL_DEPTH_COMPONENT);
-    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8) == GL_UNSIGNED_BYTE);
-    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA32) == GL_UNSIGNED_BYTE);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8_UNorm) == GL_UNSIGNED_BYTE);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8_SRGB) == GL_UNSIGNED_BYTE);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth24Stencil8) == GL_UNSIGNED_INT_24_8);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth32F) == GL_FLOAT);
+    TINYRHI_CHECK(!isSRGBFormat(TextureFormat::RGBA8_UNorm));
+    TINYRHI_CHECK(isSRGBFormat(TextureFormat::RGBA8_SRGB));
+    TINYRHI_CHECK(!isSRGBFormat(TextureFormat::Depth24Stencil8));
+}
+
+TINYRHI_TEST_CASE("sampler modes map to OpenGL enums")
+{
+    TINYRHI_CHECK(toGLAddressMode(AddressMode::Repeat) == GL_REPEAT);
+    TINYRHI_CHECK(toGLAddressMode(AddressMode::ClampToEdge) == GL_CLAMP_TO_EDGE);
+    TINYRHI_CHECK(toGLAddressMode(AddressMode::MirroredRepeat) == GL_MIRRORED_REPEAT);
+    TINYRHI_CHECK(toGLMinFilter(FilterMode::Nearest, MipFilter::None) == GL_NEAREST);
+    TINYRHI_CHECK(toGLMinFilter(FilterMode::Linear, MipFilter::None) == GL_LINEAR);
+    TINYRHI_CHECK(toGLMinFilter(FilterMode::Nearest, MipFilter::Nearest) == GL_NEAREST_MIPMAP_NEAREST);
+    TINYRHI_CHECK(toGLMinFilter(FilterMode::Linear, MipFilter::Nearest) == GL_LINEAR_MIPMAP_NEAREST);
+    TINYRHI_CHECK(toGLMinFilter(FilterMode::Nearest, MipFilter::Linear) == GL_NEAREST_MIPMAP_LINEAR);
+    TINYRHI_CHECK(toGLMinFilter(FilterMode::Linear, MipFilter::Linear) == GL_LINEAR_MIPMAP_LINEAR);
 }
 
 TINYRHI_TEST_CASE("vertex formats describe locations and component layouts")

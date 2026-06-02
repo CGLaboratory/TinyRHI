@@ -1,12 +1,16 @@
 #include "TinyRHI/backend_factory.h"
 #include "common/win32_window.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "common/stb/stb_image.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstdint>
+#include <filesystem>
+#include <string>
 #include <thread>
-#include <vector>
 
 using namespace lunalite::rhi;
 
@@ -44,15 +48,21 @@ void main()
 }
 )GLSL";
 
-uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+uint32_t calculateMipLevels(uint32_t width, uint32_t height)
 {
-    return static_cast<uint32_t>(r) | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16)
-           | (static_cast<uint32_t>(a) << 24);
+    uint32_t levels = 1;
+    while (width > 1 || height > 1) {
+        width = width > 1 ? width / 2 : 1;
+        height = height > 1 ? height / 2 : 1;
+        ++levels;
+    }
+
+    return levels;
 }
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     auto instance = BackendFactory::createInstance(BackendType::OpenGL);
     if (!instance) {
@@ -73,7 +83,8 @@ int main()
 
     auto* device = instance->getDevice();
     const SurfaceHandle surfaceHandle = instance->createSurface(surface.nativeWindow());
-    const SwapchainHandle swapchainHandle = device->createSwapchain(surfaceHandle, SwapchainDesc{});
+    const SwapchainHandle swapchainHandle =
+        device->createSwapchain(surfaceHandle, SwapchainDesc{.color_format = TextureFormat::RGBA8_SRGB});
     auto* swapchain = device->getSwapchain(swapchainHandle);
     if (swapchain == nullptr) {
         std::printf("Failed to create swapchain.\n");
@@ -92,18 +103,33 @@ int main()
 
     const std::array<uint16_t, 6> indices = {{0, 1, 2, 0, 2, 3}};
 
-    constexpr uint32_t textureWidth = 128;
-    constexpr uint32_t textureHeight = 128;
-    std::vector<uint32_t> texturePixels(textureWidth * textureHeight);
-    for (uint32_t y = 0; y < textureHeight; ++y) {
-        for (uint32_t x = 0; x < textureWidth; ++x) {
-            const bool light = ((x / 16) + (y / 16)) % 2 == 0;
-            const uint8_t r = light ? 240 : 35;
-            const uint8_t g = light ? 230 : 55;
-            const uint8_t b = light ? 80 : 140;
-            texturePixels[y * textureWidth + x] = packRgba(r, g, b, 255);
+    int imageWidth = 0;
+    int imageHeight = 0;
+    stbi_uc* imagePixels = nullptr;
+    const std::filesystem::path exeDir = argc > 0 ? std::filesystem::path(argv[0]).parent_path() : std::filesystem::path{};
+    const std::array<std::filesystem::path, 3> imagePaths = {
+        exeDir / "test.png",
+        "test.png",
+        "examples/textured_quad/test.png",
+    };
+    std::string loadedImagePath;
+    for (const auto& imagePath : imagePaths) {
+        loadedImagePath = imagePath.string();
+        imagePixels = stbi_load(loadedImagePath.c_str(), &imageWidth, &imageHeight, nullptr, STBI_rgb_alpha);
+        if (imagePixels != nullptr) {
+            break;
         }
     }
+
+    if (imagePixels == nullptr || imageWidth <= 0 || imageHeight <= 0) {
+        std::printf("Failed to load texture image test.png: %s\n", stbi_failure_reason());
+        instance->shutdown();
+        return 1;
+    }
+
+    const auto textureWidth = static_cast<uint32_t>(imageWidth);
+    const auto textureHeight = static_cast<uint32_t>(imageHeight);
+    const uint32_t mipLevels = calculateMipLevels(textureWidth, textureHeight);
 
     BufferHandle vertexBuffer = device->createBuffer(
         BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
@@ -118,19 +144,23 @@ int main()
     TextureHandle texture = device->createTexture(TextureDesc{
         .width = textureWidth,
         .height = textureHeight,
-        .format = TextureFormat::RGBA8,
+        .format = TextureFormat::RGBA8_SRGB,
         .usage = TextureUsage::Sampled | TextureUsage::CopyDst,
+        .mip_levels = mipLevels,
     });
     TextureViewHandle textureView = device->createTextureView(TextureViewDesc{
         .texture = texture,
-        .format = TextureFormat::RGBA8,
+        .format = TextureFormat::RGBA8_SRGB,
         .aspect = TextureAspect::Color,
+        .mip_level_count = mipLevels,
     });
     SamplerHandle sampler = device->createSampler(SamplerDesc{
         .min_filter = FilterMode::Linear,
         .mag_filter = FilterMode::Linear,
+        .mip_filter = MipFilter::Linear,
         .address_u = AddressMode::Repeat,
-        .address_v = AddressMode::Repeat,
+        .address_v = AddressMode::MirroredRepeat,
+        .address_w = AddressMode::ClampToEdge,
     });
 
     BindGroupLayoutDesc bindGroupLayoutDesc{};
@@ -160,10 +190,13 @@ int main()
     TextureUploadDesc uploadDesc{};
     uploadDesc.width = textureWidth;
     uploadDesc.height = textureHeight;
-    uploadDesc.format = TextureFormat::RGBA8;
-    uploadDesc.data = texturePixels.data();
-    uploadDesc.row_pitch = textureWidth * sizeof(uint32_t);
+    uploadDesc.mip_level = 0;
+    uploadDesc.format = TextureFormat::RGBA8_SRGB;
+    uploadDesc.data = imagePixels;
+    uploadDesc.row_pitch = textureWidth * 4;
     device->updateTexture(texture, uploadDesc);
+    device->generateMipmaps(texture);
+    stbi_image_free(imagePixels);
 
     PipelineDesc pipelineDesc{};
     pipelineDesc.topology = PrimitiveTopology::Triangle;
@@ -192,7 +225,7 @@ int main()
     pipelineDesc.layout = layout;
     pipelineDesc.vertex_shader = vertexShader;
     pipelineDesc.fragment_shader = fragmentShader;
-    pipelineDesc.render_target_state.color_targets.push_back(ColorTargetState{.format = TextureFormat::RGBA8});
+    pipelineDesc.render_target_state.color_targets.push_back(ColorTargetState{.format = TextureFormat::RGBA8_SRGB});
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
