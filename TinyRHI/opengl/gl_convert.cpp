@@ -34,6 +34,8 @@ GLenum toGLShaderStage(ShaderStage stage)
             return GL_VERTEX_SHADER;
         case ShaderStage::Fragment:
             return GL_FRAGMENT_SHADER;
+        case ShaderStage::Compute:
+            return GL_COMPUTE_SHADER;
     }
 
     return GL_VERTEX_SHADER;

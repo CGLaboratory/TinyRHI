@@ -5,8 +5,8 @@
 
 #include <cstddef>
 
-#include <glad/glad.h>
 #include <functional>
+#include <glad/glad.h>
 #include <memory>
 #include <vector>
 
@@ -27,9 +27,15 @@ struct OpenGLShader {
     ShaderStage stage{ShaderStage::Vertex};
 };
 
+enum class OpenGLPipelineType {
+    Graphics,
+    Compute
+};
+
 struct OpenGLPipeline {
     GLuint program{0};
     GLuint vao{0};
+    OpenGLPipelineType type{OpenGLPipelineType::Graphics};
     GLenum topology{GL_TRIANGLES};
     VertexInputDesc vertex_input;
     PipelineLayoutHandle layout{};
@@ -121,6 +127,7 @@ public:
     void destroyShader(ShaderHandle shader) override;
 
     PipelineHandle createPipeline(const PipelineDesc& desc) override;
+    PipelineHandle createComputePipeline(const ComputePipelineDesc& desc) override;
     void destroyPipeline(PipelineHandle pipeline) override;
 
     SwapchainHandle createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc) override;

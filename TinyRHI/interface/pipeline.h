@@ -5,6 +5,7 @@
 #include "texture.h"
 
 #include <cstdint>
+
 #include <vector>
 
 namespace lunalite::rhi {
@@ -167,6 +168,11 @@ struct PipelineDesc {
     RenderTargetState render_target_state{};
     DepthState depth_state{};
     RasterState raster_state{};
+};
+
+struct ComputePipelineDesc {
+    PipelineLayoutHandle layout{};
+    ShaderHandle compute_shader{};
 };
 
 } // namespace lunalite::rhi

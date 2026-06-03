@@ -1,5 +1,5 @@
-#include "device.h"
 #include "command_list.h"
+#include "device.h"
 #include "gl_convert.h"
 #include "swapchain.h"
 
@@ -9,6 +9,11 @@ namespace lunalite::rhi {
 
 namespace {
 bool hasUsage(BufferUsage usage, BufferUsage required)
+{
+    return (usage & required) == required;
+}
+
+bool hasUsage(TextureUsage usage, TextureUsage required)
 {
     return (usage & required) == required;
 }
@@ -89,16 +94,22 @@ bool bindGroupEntryResourcesValid(OpenGLDevice& device, const BindGroupEntry& en
     switch (entry.type) {
         case BindingType::UniformBuffer: {
             const auto* buffer = device.getBuffer(entry.buffer.buffer);
-            return buffer != nullptr && hasUsage(buffer->usage, BufferUsage::Uniform)
-                   && bufferBindingValid(*buffer, entry.buffer);
+            return buffer != nullptr && hasUsage(buffer->usage, BufferUsage::Uniform) &&
+                   bufferBindingValid(*buffer, entry.buffer);
         }
         case BindingType::StorageBuffer: {
             const auto* buffer = device.getBuffer(entry.buffer.buffer);
-            return buffer != nullptr && hasUsage(buffer->usage, BufferUsage::Storage)
-                   && bufferBindingValid(*buffer, entry.buffer);
+            return buffer != nullptr && hasUsage(buffer->usage, BufferUsage::Storage) &&
+                   bufferBindingValid(*buffer, entry.buffer);
         }
         case BindingType::SampledTexture:
             return device.getTextureView(entry.texture_view) != nullptr;
+        case BindingType::StorageTexture: {
+            const auto* view = device.getTextureView(entry.texture_view);
+            const auto* texture = view != nullptr ? device.getTexture(view->texture) : nullptr;
+            return texture != nullptr && hasUsage(texture->desc.usage, TextureUsage::Storage) &&
+                   !isDepthFormat(view->format) && !isSRGBFormat(view->format);
+        }
         case BindingType::Sampler:
             return device.getSampler(entry.sampler) != nullptr;
         case BindingType::CombinedImageSampler:
@@ -178,7 +189,9 @@ OpenGLDevice::~OpenGLDevice()
     m_command_list.reset();
 
     for (auto& pipeline : m_pipelines) {
-        glDeleteVertexArrays(1, &pipeline.vao);
+        if (pipeline.vao != 0) {
+            glDeleteVertexArrays(1, &pipeline.vao);
+        }
         glDeleteProgram(pipeline.program);
     }
 
@@ -464,7 +477,7 @@ OpenGLPipeline* OpenGLDevice::getPipeline(PipelineHandle handle)
     }
 
     auto& pipeline = m_pipelines[handleIndex(handle)];
-    if (pipeline.program == 0 || pipeline.vao == 0) {
+    if (pipeline.program == 0 || (pipeline.type == OpenGLPipelineType::Graphics && pipeline.vao == 0)) {
         return nullptr;
     }
 
@@ -474,14 +487,14 @@ OpenGLPipeline* OpenGLDevice::getPipeline(PipelineHandle handle)
 GLuint OpenGLDevice::getFramebuffer(const RenderPassBeginInfo& info)
 {
     for (const auto& framebuffer : m_framebuffers) {
-        if (framebuffer.width != info.width || framebuffer.height != info.height
-            || framebuffer.has_depth_stencil != info.has_depth_stencil_attachment
-            || framebuffer.color_views.size() != info.color_attachments.size()) {
+        if (framebuffer.width != info.width || framebuffer.height != info.height ||
+            framebuffer.has_depth_stencil != info.has_depth_stencil_attachment ||
+            framebuffer.color_views.size() != info.color_attachments.size()) {
             continue;
         }
 
-        bool matches = framebuffer.depth_stencil_view
-                       == (info.has_depth_stencil_attachment ? info.depth_stencil_attachment.view : TextureViewHandle{});
+        bool matches = framebuffer.depth_stencil_view ==
+                       (info.has_depth_stencil_attachment ? info.depth_stencil_attachment.view : TextureViewHandle{});
         for (size_t i = 0; matches && i < info.color_attachments.size(); ++i) {
             matches = framebuffer.color_views[i] == info.color_attachments[i].view;
         }

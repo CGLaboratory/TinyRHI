@@ -1,27 +1,29 @@
 #include "test_framework.h"
-
+#include "TinyRHI/interface/buffer.h"
 #include "TinyRHI/interface/pipeline.h"
 #include "TinyRHI/interface/shader.h"
 #include "TinyRHI/interface/texture.h"
-#include "TinyRHI/interface/buffer.h"
 
 using namespace lunalite::rhi;
 
 TINYRHI_TEST_CASE("shader stage flags can be combined")
 {
-    const ShaderStageFlags flags = ShaderStage::Vertex | ShaderStage::Fragment;
+    const ShaderStageFlags flags = ShaderStage::Vertex | ShaderStage::Fragment | shaderStageFlag(ShaderStage::Compute);
 
     TINYRHI_CHECK((flags & shaderStageFlag(ShaderStage::Vertex)) != 0);
     TINYRHI_CHECK((flags & shaderStageFlag(ShaderStage::Fragment)) != 0);
+    TINYRHI_CHECK((flags & shaderStageFlag(ShaderStage::Compute)) != 0);
 }
 
 TINYRHI_TEST_CASE("texture usage flags preserve individual bits")
 {
     TextureUsage usage = TextureUsage::RenderTarget;
     usage |= TextureUsage::Sampled;
+    usage |= TextureUsage::Storage;
 
     TINYRHI_CHECK((usage & TextureUsage::RenderTarget) == TextureUsage::RenderTarget);
     TINYRHI_CHECK((usage & TextureUsage::Sampled) == TextureUsage::Sampled);
+    TINYRHI_CHECK((usage & TextureUsage::Storage) == TextureUsage::Storage);
     TINYRHI_CHECK((usage & TextureUsage::DepthStencil) == TextureUsage::None);
 }
 

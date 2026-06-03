@@ -1,5 +1,4 @@
 #include "test_framework.h"
-
 #include "TinyRHI/opengl/gl_convert.h"
 
 using namespace lunalite::rhi;
@@ -17,6 +16,7 @@ TINYRHI_TEST_CASE("shader stages and primitive topologies map to OpenGL enums")
 {
     TINYRHI_CHECK(toGLShaderStage(ShaderStage::Vertex) == GL_VERTEX_SHADER);
     TINYRHI_CHECK(toGLShaderStage(ShaderStage::Fragment) == GL_FRAGMENT_SHADER);
+    TINYRHI_CHECK(toGLShaderStage(ShaderStage::Compute) == GL_COMPUTE_SHADER);
     TINYRHI_CHECK(toGLTopology(PrimitiveTopology::Triangle) == GL_TRIANGLES);
     TINYRHI_CHECK(toGLTopology(PrimitiveTopology::Line) == GL_LINES);
     TINYRHI_CHECK(toGLTopology(PrimitiveTopology::Point) == GL_POINTS);

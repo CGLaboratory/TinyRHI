@@ -20,6 +20,11 @@ bool hasUsage(BufferUsage usage, BufferUsage required)
     return (usage & required) == required;
 }
 
+bool hasUsage(TextureUsage usage, TextureUsage required)
+{
+    return (usage & required) == required;
+}
+
 const BindGroupLayoutEntry* findLayoutEntry(const BindGroupLayoutDesc& layout, uint32_t binding)
 {
     for (const auto& entry : layout.entries) {
@@ -263,6 +268,12 @@ void OpenGLCommandList::setPipeline(PipelineHandle pipeline)
 
     m_current_pipeline = pipeline;
     glUseProgram(glPipeline->program);
+
+    if (glPipeline->type == OpenGLPipelineType::Compute) {
+        glBindVertexArray(0);
+        return;
+    }
+
     glBindVertexArray(glPipeline->vao);
 
     if (glPipeline->depth_state.enabled) {
@@ -398,6 +409,24 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 }
                 break;
             }
+            case BindingType::StorageTexture: {
+                auto* glView = m_device.getTextureView(entry.texture_view);
+                auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
+                if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer &&
+                    hasUsage(glTexture->desc.usage, TextureUsage::Storage) && !isDepthFormat(glView->format) &&
+                    !isSRGBFormat(glView->format)) {
+                    const GLboolean layered = glView->array_layer_count > 1 ? GL_TRUE : GL_FALSE;
+                    const GLint layer = layered == GL_TRUE ? 0 : static_cast<GLint>(glView->base_array_layer);
+                    glBindImageTexture(binding,
+                                       glTexture->id,
+                                       static_cast<GLint>(glView->base_mip_level),
+                                       layered,
+                                       layer,
+                                       GL_READ_WRITE,
+                                       toGLTextureInternalFormat(glView->format));
+                }
+                break;
+            }
             case BindingType::Sampler: {
                 auto* glSampler = m_device.getSampler(entry.sampler);
                 if (glSampler != nullptr) {
@@ -426,7 +455,8 @@ void OpenGLCommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer, size
     auto* glBuffer = m_device.getBuffer(buffer);
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
 
-    if (glBuffer == nullptr || glPipeline == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Vertex)) {
+    if (glBuffer == nullptr || glPipeline == nullptr || glPipeline->type != OpenGLPipelineType::Graphics ||
+        !hasUsage(glBuffer->usage, BufferUsage::Vertex)) {
         return;
     }
 
@@ -444,7 +474,8 @@ void OpenGLCommandList::setIndexBuffer(BufferHandle buffer, IndexFormat format, 
     auto* glBuffer = m_device.getBuffer(buffer);
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
 
-    if (glBuffer == nullptr || glPipeline == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Index)) {
+    if (glBuffer == nullptr || glPipeline == nullptr || glPipeline->type != OpenGLPipelineType::Graphics ||
+        !hasUsage(glBuffer->usage, BufferUsage::Index)) {
         return;
     }
 
@@ -515,19 +546,30 @@ void OpenGLCommandList::pushConstants(ShaderStageFlags stages, uint32_t offset, 
     uploadPushConstantUniforms(glPipeline->program, offset, size, data);
 }
 
+void OpenGLCommandList::resourceBarrier(const BufferBarrier* barriers, uint32_t count)
+{
+    if (barriers == nullptr || count == 0) {
+        return;
+    }
+
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT |
+                    GL_ELEMENT_ARRAY_BARRIER_BIT);
+}
+
 void OpenGLCommandList::resourceBarrier(const TextureBarrier* barriers, uint32_t count)
 {
     if (barriers == nullptr || count == 0) {
         return;
     }
 
-    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT |
+                    GL_TEXTURE_UPDATE_BARRIER_BIT);
 }
 
 void OpenGLCommandList::draw(uint32_t vertex_count, uint32_t first_vertex)
 {
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
-    if (glPipeline == nullptr) {
+    if (glPipeline == nullptr || glPipeline->type != OpenGLPipelineType::Graphics) {
         return;
     }
 
@@ -538,7 +580,8 @@ void OpenGLCommandList::drawIndexed(uint32_t index_count, uint32_t first_index, 
 {
     auto* glPipeline = m_device.getPipeline(m_current_pipeline);
     auto* glIndexBuffer = m_device.getBuffer(m_current_index_buffer);
-    if (glPipeline == nullptr || glIndexBuffer == nullptr || !hasUsage(glIndexBuffer->usage, BufferUsage::Index)) {
+    if (glPipeline == nullptr || glPipeline->type != OpenGLPipelineType::Graphics || glIndexBuffer == nullptr ||
+        !hasUsage(glIndexBuffer->usage, BufferUsage::Index)) {
         return;
     }
 
@@ -549,6 +592,17 @@ void OpenGLCommandList::drawIndexed(uint32_t index_count, uint32_t first_index, 
                              toGLIndexFormat(m_current_index_format),
                              reinterpret_cast<const void*>(offset),
                              static_cast<GLint>(vertex_offset));
+}
+
+void OpenGLCommandList::dispatch(uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z)
+{
+    auto* glPipeline = m_device.getPipeline(m_current_pipeline);
+    if (glPipeline == nullptr || glPipeline->type != OpenGLPipelineType::Compute || group_count_x == 0 ||
+        group_count_y == 0 || group_count_z == 0) {
+        return;
+    }
+
+    glDispatchCompute(group_count_x, group_count_y, group_count_z);
 }
 
 } // namespace lunalite::rhi

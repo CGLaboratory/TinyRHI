@@ -1,5 +1,4 @@
 #include "test_framework.h"
-
 #include "TinyRHI/opengl/device.h"
 
 using namespace lunalite::rhi;
@@ -58,7 +57,7 @@ TINYRHI_TEST_CASE("pipeline layout rejects overflowing push constant ranges")
     PipelineLayoutDesc desc{};
     desc.push_constants.push_back(PushConstantRange{
         .stages = shaderStageFlag(ShaderStage::Fragment),
-        .offset = 0xFFFFFFF0u,
+        .offset = 0xFF'FF'FF'F0u,
         .size = 32,
     });
 
@@ -96,6 +95,20 @@ TINYRHI_TEST_CASE("pipeline layout allows overlapping push constant ranges in di
     });
     desc.push_constants.push_back(PushConstantRange{
         .stages = shaderStageFlag(ShaderStage::Fragment),
+        .offset = 0,
+        .size = 16,
+    });
+
+    TINYRHI_CHECK(!!device.createPipelineLayout(desc));
+}
+
+TINYRHI_TEST_CASE("pipeline layout allows compute push constant ranges")
+{
+    OpenGLDevice device;
+
+    PipelineLayoutDesc desc{};
+    desc.push_constants.push_back(PushConstantRange{
+        .stages = shaderStageFlag(ShaderStage::Compute),
         .offset = 0,
         .size = 16,
     });

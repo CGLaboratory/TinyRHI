@@ -2,6 +2,7 @@
 #include "gl_convert.h"
 
 #include <cstdio>
+
 #include <vector>
 
 namespace lunalite::rhi {
@@ -37,6 +38,10 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
     const auto* fragmentShader = getShader(desc.fragment_shader);
     if (vertexShader == nullptr || fragmentShader == nullptr) {
         std::printf("OpenGL pipeline creation failed: invalid shader handle.\n");
+        return {};
+    }
+    if (vertexShader->stage != ShaderStage::Vertex || fragmentShader->stage != ShaderStage::Fragment) {
+        std::printf("OpenGL pipeline creation failed: shader stages must be vertex and fragment.\n");
         return {};
     }
 
@@ -84,12 +89,56 @@ PipelineHandle OpenGLDevice::createPipeline(const PipelineDesc& desc)
     m_pipelines.push_back(OpenGLPipeline{
         .program = program,
         .vao = vao,
+        .type = OpenGLPipelineType::Graphics,
         .topology = toGLTopology(desc.topology),
         .vertex_input = desc.vertex_input,
         .layout = desc.layout,
         .render_target_state = desc.render_target_state,
         .depth_state = desc.depth_state,
         .raster_state = desc.raster_state,
+    });
+    return makeHandle<PipelineHandle>(m_pipelines.size() - 1);
+}
+
+PipelineHandle OpenGLDevice::createComputePipeline(const ComputePipelineDesc& desc)
+{
+    if (getPipelineLayout(desc.layout) == nullptr) {
+        std::printf("OpenGL compute pipeline creation failed: invalid pipeline layout handle.\n");
+        return {};
+    }
+
+    const auto* computeShader = getShader(desc.compute_shader);
+    if (computeShader == nullptr) {
+        std::printf("OpenGL compute pipeline creation failed: invalid shader handle.\n");
+        return {};
+    }
+    if (computeShader->stage != ShaderStage::Compute) {
+        std::printf("OpenGL compute pipeline creation failed: shader stage must be compute.\n");
+        return {};
+    }
+
+    GLuint program = glCreateProgram();
+    glAttachShader(program, computeShader->id);
+    glLinkProgram(program);
+
+    GLint success = GL_FALSE;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (success != GL_TRUE) {
+        logProgramError(program);
+        glDeleteProgram(program);
+        return {};
+    }
+
+    m_pipelines.push_back(OpenGLPipeline{
+        .program = program,
+        .vao = 0,
+        .type = OpenGLPipelineType::Compute,
+        .topology = GL_TRIANGLES,
+        .vertex_input = VertexInputDesc{},
+        .layout = desc.layout,
+        .render_target_state = RenderTargetState{},
+        .depth_state = DepthState{},
+        .raster_state = RasterState{},
     });
     return makeHandle<PipelineHandle>(m_pipelines.size() - 1);
 }
@@ -101,7 +150,9 @@ void OpenGLDevice::destroyPipeline(PipelineHandle pipeline)
         return;
     }
 
-    glDeleteVertexArrays(1, &glPipeline->vao);
+    if (glPipeline->vao != 0) {
+        glDeleteVertexArrays(1, &glPipeline->vao);
+    }
     glDeleteProgram(glPipeline->program);
     glPipeline->vao = 0;
     glPipeline->program = 0;

@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_compute_particles compute_particles.cpp)

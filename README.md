@@ -23,6 +23,8 @@ The example window helper is currently Win32/WGL-only and requests an OpenGL 4.5
 - `tinyrhi_triangle`: draws a vertex-buffer triangle.
 - `tinyrhi_dynamic_uniform_offsets`: draws two triangles from one uniform buffer using dynamic offsets.
 - `tinyrhi_multi_vertex_buffers`: binds position and color from separate vertex buffers.
+- `tinyrhi_compute_particles`: updates a storage buffer with a compute shader and renders it as points.
+- `tinyrhi_brdf_lut`: computes a standard split-sum GGX BRDF LUT with a compute shader.
 - `tinyrhi_push_constants`: updates fragment color through push constants.
 - `tinyrhi_textured_quad`: uploads a procedural checker texture and samples it through a bind group.
 - `tinyrhi_depth_test`: draws overlapping geometry with a depth attachment.
@@ -37,6 +39,8 @@ After building, run them from:
 .\build\examples\Debug\tinyrhi_triangle.exe
 .\build\examples\Debug\tinyrhi_dynamic_uniform_offsets.exe
 .\build\examples\Debug\tinyrhi_multi_vertex_buffers.exe
+.\build\examples\Debug\tinyrhi_compute_particles.exe
+.\build\examples\Debug\tinyrhi_brdf_lut.exe
 .\build\examples\Debug\tinyrhi_push_constants.exe
 .\build\examples\Debug\tinyrhi_textured_quad.exe
 .\build\examples\Debug\tinyrhi_depth_test.exe

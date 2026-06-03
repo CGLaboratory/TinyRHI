@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+
 #include <vector>
 
 namespace lunalite::rhi {
@@ -14,6 +15,7 @@ enum class BindingType {
     UniformBuffer,
     StorageBuffer,
     SampledTexture,
+    StorageTexture,
     Sampler,
     CombinedImageSampler
 };

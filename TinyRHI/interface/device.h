@@ -44,6 +44,7 @@ public:
     virtual void destroyShader(ShaderHandle shader) = 0;
 
     virtual PipelineHandle createPipeline(const PipelineDesc& desc) = 0;
+    virtual PipelineHandle createComputePipeline(const ComputePipelineDesc& desc) = 0;
     virtual void destroyPipeline(PipelineHandle pipeline) = 0;
 
     virtual SwapchainHandle createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc) = 0;

@@ -26,9 +26,11 @@ public:
     void setViewport(uint32_t first, const Viewport* viewports, uint32_t count) override;
     void setScissor(uint32_t first, const ScissorRect* scissors, uint32_t count) override;
     void pushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void* data) override;
+    void resourceBarrier(const BufferBarrier* barriers, uint32_t count) override;
     void resourceBarrier(const TextureBarrier* barriers, uint32_t count) override;
     void draw(uint32_t vertex_count, uint32_t first_vertex = 0) override;
     void drawIndexed(uint32_t index_count, uint32_t first_index = 0, int32_t vertex_offset = 0) override;
+    void dispatch(uint32_t group_count_x, uint32_t group_count_y = 1, uint32_t group_count_z = 1) override;
 
 private:
     OpenGLDevice& m_device;

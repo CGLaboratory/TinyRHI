@@ -5,8 +5,8 @@ namespace lunalite::rhi {
 
 enum class ShaderStage : uint32_t {
     Vertex = 1 << 0,
-    Fragment = 1 << 1
-    // Compute
+    Fragment = 1 << 1,
+    Compute = 1 << 2
 };
 
 using ShaderStageFlags = uint32_t;

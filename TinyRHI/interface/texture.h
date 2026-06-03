@@ -31,7 +31,8 @@ enum class TextureUsage : uint32_t {
     DepthStencil = 1 << 1,
     Sampled = 1 << 2,
     CopySrc = 1 << 3,
-    CopyDst = 1 << 4
+    CopyDst = 1 << 4,
+    Storage = 1 << 5
 };
 
 constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs)

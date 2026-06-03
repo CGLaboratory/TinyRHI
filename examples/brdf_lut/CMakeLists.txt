@@ -1,0 +1,1 @@
+tinyrhi_add_example(tinyrhi_brdf_lut brdf_lut.cpp)
