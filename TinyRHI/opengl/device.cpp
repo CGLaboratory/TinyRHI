@@ -250,6 +250,11 @@ void OpenGLDevice::present(const SwapchainFrame& frame)
     }
 
     glSwapchain->present();
+    if (auto* view = getTextureView(frame.color_view)) {
+        if (auto* texture = getTexture(view->texture)) {
+            texture->state = ResourceState::Present;
+        }
+    }
     if (m_active_frame_swapchain == frame.swapchain) {
         m_active_frame_swapchain = {};
     }

@@ -13,7 +13,8 @@ enum class BufferUsage : uint32_t {
     Uniform = 1 << 2,
     Storage = 1 << 3,
     CopySrc = 1 << 4,
-    CopyDst = 1 << 5
+    CopyDst = 1 << 5,
+    Indirect = 1 << 6
 };
 
 constexpr BufferUsage operator|(BufferUsage lhs, BufferUsage rhs)

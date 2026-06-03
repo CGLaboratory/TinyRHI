@@ -20,6 +20,7 @@ struct OpenGLBuffer {
     BufferUsage usage{BufferUsage::None};
     MemoryUsage memory{MemoryUsage::GpuOnly};
     size_t size{0};
+    ResourceState state{ResourceState::Undefined};
 };
 
 struct OpenGLShader {
@@ -47,6 +48,7 @@ struct OpenGLPipeline {
 struct OpenGLTexture {
     GLuint id{0};
     TextureDesc desc{};
+    ResourceState state{ResourceState::Undefined};
     bool is_swapchain_backbuffer{false};
     SwapchainHandle swapchain{};
 };

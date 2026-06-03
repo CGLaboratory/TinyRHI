@@ -245,17 +245,21 @@ int main()
         pass.height = frame.height;
 
         commands.begin();
+        BufferTransition particleStorageTransition{
+            .buffer = particleBuffer,
+            .state = ResourceState::StorageReadWrite,
+        };
+        commands.transition(&particleStorageTransition, 1);
         commands.setPipeline(computePipeline);
         commands.setBindGroup(0, particleBindGroup);
         commands.pushConstants(shaderStageFlag(ShaderStage::Compute), 0, sizeof(constants), constants);
         commands.dispatch((kParticleCount + kComputeGroupSize - 1) / kComputeGroupSize);
 
-        BufferBarrier particleBarrier{
+        BufferTransition particleVertexTransition{
             .buffer = particleBuffer,
-            .old_state = ResourceState::StorageWrite,
-            .new_state = ResourceState::VertexBuffer,
+            .state = ResourceState::VertexBuffer,
         };
-        commands.resourceBarrier(&particleBarrier, 1);
+        commands.transition(&particleVertexTransition, 1);
 
         commands.beginRenderPass(pass);
         commands.setPipeline(graphicsPipeline);

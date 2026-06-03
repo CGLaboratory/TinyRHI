@@ -125,6 +125,152 @@ void uploadPushConstantUniforms(GLuint program, uint32_t offset, uint32_t size, 
     const auto* values = static_cast<const GLfloat*>(data);
     glProgramUniform4fv(program, location + firstVec4, vec4Count, values);
 }
+
+bool bufferStateCompatible(const OpenGLBuffer& buffer, ResourceState state)
+{
+    switch (state) {
+        case ResourceState::Undefined:
+            return false;
+        case ResourceState::CopySrc:
+            return hasUsage(buffer.usage, BufferUsage::CopySrc);
+        case ResourceState::CopyDst:
+            return hasUsage(buffer.usage, BufferUsage::CopyDst);
+        case ResourceState::VertexBuffer:
+            return hasUsage(buffer.usage, BufferUsage::Vertex);
+        case ResourceState::IndexBuffer:
+            return hasUsage(buffer.usage, BufferUsage::Index);
+        case ResourceState::IndirectArgument:
+            return hasUsage(buffer.usage, BufferUsage::Indirect);
+        case ResourceState::UniformRead:
+            return hasUsage(buffer.usage, BufferUsage::Uniform);
+        case ResourceState::ShaderRead:
+        case ResourceState::StorageRead:
+        case ResourceState::StorageReadWrite:
+            return hasUsage(buffer.usage, BufferUsage::Storage);
+        case ResourceState::ColorAttachment:
+        case ResourceState::DepthStencilRead:
+        case ResourceState::DepthStencilWrite:
+        case ResourceState::Present:
+            return false;
+    }
+
+    return false;
+}
+
+bool textureStateCompatible(const OpenGLTexture& texture, ResourceState state)
+{
+    switch (state) {
+        case ResourceState::Undefined:
+            return false;
+        case ResourceState::CopySrc:
+            return hasUsage(texture.desc.usage, TextureUsage::CopySrc);
+        case ResourceState::CopyDst:
+            return hasUsage(texture.desc.usage, TextureUsage::CopyDst);
+        case ResourceState::ShaderRead:
+            return hasUsage(texture.desc.usage, TextureUsage::Sampled);
+        case ResourceState::StorageRead:
+        case ResourceState::StorageReadWrite:
+            return hasUsage(texture.desc.usage, TextureUsage::Storage) && !isDepthFormat(texture.desc.format) &&
+                   !isSRGBFormat(texture.desc.format);
+        case ResourceState::ColorAttachment:
+            return hasUsage(texture.desc.usage, TextureUsage::RenderTarget) && !isDepthFormat(texture.desc.format);
+        case ResourceState::DepthStencilRead:
+        case ResourceState::DepthStencilWrite:
+            return hasUsage(texture.desc.usage, TextureUsage::DepthStencil) && isDepthFormat(texture.desc.format);
+        case ResourceState::Present:
+            return texture.is_swapchain_backbuffer;
+        case ResourceState::VertexBuffer:
+        case ResourceState::IndexBuffer:
+        case ResourceState::IndirectArgument:
+        case ResourceState::UniformRead:
+            return false;
+    }
+
+    return false;
+}
+
+bool bufferWriteState(ResourceState state)
+{
+    return state == ResourceState::StorageReadWrite || state == ResourceState::CopyDst;
+}
+
+bool textureWriteState(ResourceState state)
+{
+    return state == ResourceState::StorageReadWrite || state == ResourceState::CopyDst ||
+           state == ResourceState::ColorAttachment || state == ResourceState::DepthStencilWrite;
+}
+
+GLbitfield bufferBarrierBits(ResourceState oldState, ResourceState newState)
+{
+    if (!bufferWriteState(oldState) && !(oldState == newState && bufferWriteState(newState))) {
+        return 0;
+    }
+
+    GLbitfield bits = 0;
+    if (oldState == ResourceState::StorageReadWrite || newState == ResourceState::StorageRead ||
+        newState == ResourceState::StorageReadWrite) {
+        bits |= GL_SHADER_STORAGE_BARRIER_BIT;
+    }
+    if (oldState == ResourceState::CopyDst || newState == ResourceState::CopySrc ||
+        newState == ResourceState::CopyDst) {
+        bits |= GL_BUFFER_UPDATE_BARRIER_BIT;
+    }
+
+    switch (newState) {
+        case ResourceState::VertexBuffer:
+            bits |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
+            break;
+        case ResourceState::IndexBuffer:
+            bits |= GL_ELEMENT_ARRAY_BARRIER_BIT;
+            break;
+        case ResourceState::UniformRead:
+            bits |= GL_UNIFORM_BARRIER_BIT;
+            break;
+        case ResourceState::IndirectArgument:
+            bits |= GL_COMMAND_BARRIER_BIT;
+            break;
+        default:
+            break;
+    }
+
+    return bits;
+}
+
+GLbitfield textureBarrierBits(ResourceState oldState, ResourceState newState)
+{
+    if (!textureWriteState(oldState) && !(oldState == newState && textureWriteState(newState))) {
+        return 0;
+    }
+
+    GLbitfield bits = 0;
+    if (oldState == ResourceState::StorageReadWrite || newState == ResourceState::StorageRead ||
+        newState == ResourceState::StorageReadWrite) {
+        bits |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
+    }
+    if (oldState == ResourceState::CopyDst || newState == ResourceState::CopySrc ||
+        newState == ResourceState::CopyDst) {
+        bits |= GL_TEXTURE_UPDATE_BARRIER_BIT;
+    }
+    if (oldState == ResourceState::ColorAttachment || oldState == ResourceState::DepthStencilWrite ||
+        newState == ResourceState::ColorAttachment || newState == ResourceState::DepthStencilWrite ||
+        newState == ResourceState::DepthStencilRead) {
+        bits |= GL_FRAMEBUFFER_BARRIER_BIT;
+    }
+    if (newState == ResourceState::ShaderRead) {
+        bits |= GL_TEXTURE_FETCH_BARRIER_BIT;
+    }
+
+    return bits;
+}
+
+void transitionTexture(OpenGLTexture& texture, ResourceState state)
+{
+    const GLbitfield bits = textureBarrierBits(texture.state, state);
+    if (bits != 0) {
+        glMemoryBarrier(bits);
+    }
+    texture.state = state;
+}
 } // namespace
 
 void OpenGLCommandList::begin()
@@ -203,6 +349,33 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+    for (const auto& color : info.color_attachments) {
+        auto* glView = m_device.getTextureView(color.view);
+        auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
+        if (glTexture != nullptr) {
+            if (!textureStateCompatible(*glTexture, ResourceState::ColorAttachment)) {
+                std::printf(
+                    "OpenGL render pass begin failed: color attachment texture was not created for rendering.\n");
+                return;
+            }
+            transitionTexture(*glTexture, ResourceState::ColorAttachment);
+        }
+    }
+
+    if (info.has_depth_stencil_attachment) {
+        auto* glView = m_device.getTextureView(info.depth_stencil_attachment.view);
+        auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
+        if (glTexture != nullptr) {
+            if (!textureStateCompatible(*glTexture, ResourceState::DepthStencilWrite)) {
+                std::printf(
+                    "OpenGL render pass begin failed: depth stencil attachment texture was not created for depth "
+                    "stencil rendering.\n");
+                return;
+            }
+            transitionTexture(*glTexture, ResourceState::DepthStencilWrite);
+        }
+    }
 
     bool encodeSrgb = false;
     for (const auto& color : info.color_attachments) {
@@ -546,24 +719,50 @@ void OpenGLCommandList::pushConstants(ShaderStageFlags stages, uint32_t offset, 
     uploadPushConstantUniforms(glPipeline->program, offset, size, data);
 }
 
-void OpenGLCommandList::resourceBarrier(const BufferBarrier* barriers, uint32_t count)
+void OpenGLCommandList::transition(const BufferTransition* transitions, uint32_t count)
 {
-    if (barriers == nullptr || count == 0) {
+    if (transitions == nullptr || count == 0) {
         return;
     }
 
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT |
-                    GL_ELEMENT_ARRAY_BARRIER_BIT);
+    GLbitfield bits = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto& transition = transitions[i];
+        auto* glBuffer = m_device.getBuffer(transition.buffer);
+        if (glBuffer == nullptr || !bufferStateCompatible(*glBuffer, transition.state)) {
+            continue;
+        }
+
+        bits |= bufferBarrierBits(glBuffer->state, transition.state);
+        glBuffer->state = transition.state;
+    }
+
+    if (bits != 0) {
+        glMemoryBarrier(bits);
+    }
 }
 
-void OpenGLCommandList::resourceBarrier(const TextureBarrier* barriers, uint32_t count)
+void OpenGLCommandList::transition(const TextureTransition* transitions, uint32_t count)
 {
-    if (barriers == nullptr || count == 0) {
+    if (transitions == nullptr || count == 0) {
         return;
     }
 
-    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT |
-                    GL_TEXTURE_UPDATE_BARRIER_BIT);
+    GLbitfield bits = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto& transition = transitions[i];
+        auto* glTexture = m_device.getTexture(transition.texture);
+        if (glTexture == nullptr || !textureStateCompatible(*glTexture, transition.state)) {
+            continue;
+        }
+
+        bits |= textureBarrierBits(glTexture->state, transition.state);
+        glTexture->state = transition.state;
+    }
+
+    if (bits != 0) {
+        glMemoryBarrier(bits);
+    }
 }
 
 void OpenGLCommandList::draw(uint32_t vertex_count, uint32_t first_vertex)

@@ -12,28 +12,29 @@ namespace lunalite::rhi {
 
 enum class ResourceState {
     Undefined,
-    RenderTarget,
-    DepthStencilWrite,
-    ShaderRead,
-    StorageRead,
-    StorageWrite,
-    VertexBuffer,
-    IndexBuffer,
     CopySrc,
     CopyDst,
+    VertexBuffer,
+    IndexBuffer,
+    IndirectArgument,
+    UniformRead,
+    ShaderRead,
+    StorageRead,
+    StorageReadWrite,
+    ColorAttachment,
+    DepthStencilRead,
+    DepthStencilWrite,
     Present
 };
 
-struct BufferBarrier {
+struct BufferTransition {
     BufferHandle buffer{};
-    ResourceState old_state{ResourceState::Undefined};
-    ResourceState new_state{ResourceState::Undefined};
+    ResourceState state{ResourceState::Undefined};
 };
 
-struct TextureBarrier {
+struct TextureTransition {
     TextureHandle texture{};
-    ResourceState old_state{ResourceState::Undefined};
-    ResourceState new_state{ResourceState::Undefined};
+    ResourceState state{ResourceState::Undefined};
 };
 
 struct Viewport {
@@ -76,8 +77,8 @@ public:
 
     virtual void pushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void* data) = 0;
 
-    virtual void resourceBarrier(const BufferBarrier* barriers, uint32_t count) = 0;
-    virtual void resourceBarrier(const TextureBarrier* barriers, uint32_t count) = 0;
+    virtual void transition(const BufferTransition* transitions, uint32_t count) = 0;
+    virtual void transition(const TextureTransition* transitions, uint32_t count) = 0;
 
     virtual void draw(uint32_t vertex_count, uint32_t first_vertex = 0) = 0;
     virtual void drawIndexed(uint32_t index_count, uint32_t first_index = 0, int32_t vertex_offset = 0) = 0;

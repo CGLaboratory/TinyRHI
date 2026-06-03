@@ -276,16 +276,20 @@ int main()
     }
 
     commands.begin();
+    TextureTransition brdfLutStorageTransition{
+        .texture = brdfLut,
+        .state = ResourceState::StorageReadWrite,
+    };
+    commands.transition(&brdfLutStorageTransition, 1);
     commands.setPipeline(computePipeline);
     commands.setBindGroup(0, computeBindGroup);
     commands.dispatch((kLutSize + kComputeGroupSize - 1) / kComputeGroupSize,
                       (kLutSize + kComputeGroupSize - 1) / kComputeGroupSize);
-    TextureBarrier brdfLutBarrier{
+    TextureTransition brdfLutShaderReadTransition{
         .texture = brdfLut,
-        .old_state = ResourceState::StorageWrite,
-        .new_state = ResourceState::ShaderRead,
+        .state = ResourceState::ShaderRead,
     };
-    commands.resourceBarrier(&brdfLutBarrier, 1);
+    commands.transition(&brdfLutShaderReadTransition, 1);
     commands.end();
     device->submit(commandListHandle);
 
