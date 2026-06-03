@@ -39,6 +39,8 @@ TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_SRGB) == GL_SRGB8_ALPHA8);
+    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RG16F) == GL_RG16F);
+    TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RG32F) == GL_RG32F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA16F) == GL_RGBA16F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA32F) == GL_RGBA32F);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH24_STENCIL8);
@@ -46,12 +48,16 @@ TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA8_SRGB) == GL_RGBA);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RG16F) == GL_RG);
+    TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RG32F) == GL_RG);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA16F) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::RGBA32F) == GL_RGBA);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth24Stencil8) == GL_DEPTH_STENCIL);
     TINYRHI_CHECK(toGLTextureUploadFormat(TextureFormat::Depth32F) == GL_DEPTH_COMPONENT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8_UNorm) == GL_UNSIGNED_BYTE);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA8_SRGB) == GL_UNSIGNED_BYTE);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RG16F) == GL_HALF_FLOAT);
+    TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RG32F) == GL_FLOAT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA16F) == GL_HALF_FLOAT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::RGBA32F) == GL_FLOAT);
     TINYRHI_CHECK(toGLTextureUploadType(TextureFormat::Depth24Stencil8) == GL_UNSIGNED_INT_24_8);

@@ -198,6 +198,10 @@ GLenum toGLTextureInternalFormat(TextureFormat format)
             return GL_RGBA8;
         case TextureFormat::RGBA8_SRGB:
             return GL_SRGB8_ALPHA8;
+        case TextureFormat::RG16F:
+            return GL_RG16F;
+        case TextureFormat::RG32F:
+            return GL_RG32F;
         case TextureFormat::RGBA16F:
             return GL_RGBA16F;
         case TextureFormat::RGBA32F:
@@ -214,6 +218,9 @@ GLenum toGLTextureInternalFormat(TextureFormat format)
 GLenum toGLTextureUploadFormat(TextureFormat format)
 {
     switch (format) {
+        case TextureFormat::RG16F:
+        case TextureFormat::RG32F:
+            return GL_RG;
         case TextureFormat::RGBA8_UNorm:
         case TextureFormat::RGBA8_SRGB:
         case TextureFormat::RGBA16F:
@@ -234,8 +241,10 @@ GLenum toGLTextureUploadType(TextureFormat format)
         case TextureFormat::RGBA8_UNorm:
         case TextureFormat::RGBA8_SRGB:
             return GL_UNSIGNED_BYTE;
+        case TextureFormat::RG16F:
         case TextureFormat::RGBA16F:
             return GL_HALF_FLOAT;
+        case TextureFormat::RG32F:
         case TextureFormat::RGBA32F:
             return GL_FLOAT;
         case TextureFormat::Depth24Stencil8:
@@ -256,6 +265,8 @@ GLenum toGLAttachment(TextureFormat format)
             return GL_DEPTH_ATTACHMENT;
         case TextureFormat::RGBA8_UNorm:
         case TextureFormat::RGBA8_SRGB:
+        case TextureFormat::RG16F:
+        case TextureFormat::RG32F:
         case TextureFormat::RGBA16F:
         case TextureFormat::RGBA32F:
             return GL_COLOR_ATTACHMENT0;

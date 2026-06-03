@@ -11,6 +11,10 @@ size_t textureFormatBytesPerPixel(TextureFormat format)
         case TextureFormat::RGBA8_UNorm:
         case TextureFormat::RGBA8_SRGB:
             return 4;
+        case TextureFormat::RG16F:
+            return 4;
+        case TextureFormat::RG32F:
+            return 8;
         case TextureFormat::RGBA16F:
             return 8;
         case TextureFormat::RGBA32F:
@@ -71,8 +75,7 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
 
     const uint32_t mipWidth = textureMipDimension(glTexture->desc.width, desc.mip_level);
     const uint32_t mipHeight = textureMipDimension(glTexture->desc.height, desc.mip_level);
-    if (desc.x > mipWidth || desc.y > mipHeight || desc.width > mipWidth - desc.x ||
-        desc.height > mipHeight - desc.y) {
+    if (desc.x > mipWidth || desc.y > mipHeight || desc.width > mipWidth - desc.x || desc.height > mipHeight - desc.y) {
         return;
     }
 
