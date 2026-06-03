@@ -1,10 +1,11 @@
-#include "TinyRHI/backend_factory.h"
 #include "common/win32_window.h"
+#include "TinyRHI/backend_factory.h"
+
+#include <cstddef>
+#include <cstdio>
 
 #include <array>
 #include <chrono>
-#include <cstddef>
-#include <cstdio>
 #include <thread>
 
 using namespace lunalite::rhi;
@@ -94,11 +95,11 @@ int main()
     *rightColor = UniformData{{0.18f, 0.45f, 0.95f, 1.0f}};
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
-        vertices.data());
-    BufferHandle uniformBuffer = device->createBuffer(
-        BufferDesc{.size = uniformData.size(), .usage = BufferUsage::Uniform | BufferUsage::CopyDst, .memory = MemoryUsage::CpuToGpu},
-        uniformData.data());
+        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, vertices.data());
+    BufferHandle uniformBuffer = device->createBuffer(BufferDesc{.size = uniformData.size(),
+                                                                 .usage = BufferUsage::Uniform | BufferUsage::CopyDst,
+                                                                 .memory = MemoryUsage::CpuToGpu},
+                                                      uniformData.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -148,8 +149,8 @@ int main()
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (!vertexBuffer || !uniformBuffer || !vertexShader || !fragmentShader || !bindGroupLayout || !layout || !bindGroup
-        || !pipeline) {
+    if (!vertexBuffer || !uniformBuffer || !vertexShader || !fragmentShader || !bindGroupLayout || !layout ||
+        !bindGroup || !pipeline) {
         std::printf("Failed to create dynamic uniform offset resources.\n");
         instance->shutdown();
         return 1;
@@ -157,16 +158,20 @@ int main()
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = ClearColor{0.05f, 0.055f, 0.065f, 1.0f},
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
@@ -184,7 +189,8 @@ int main()
         commands.endRenderPass();
         commands.end();
 
-        swapchain->present();
+        device->submit(&frame);
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

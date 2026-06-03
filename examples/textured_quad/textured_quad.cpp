@@ -1,13 +1,14 @@
-#include "TinyRHI/backend_factory.h"
 #include "common/win32_window.h"
+#include "TinyRHI/backend_factory.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "common/stb/stb_image.h"
 
-#include <array>
 #include <cstddef>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
+
+#include <array>
 #include <filesystem>
 #include <string>
 #include <thread>
@@ -106,7 +107,8 @@ int main(int argc, char** argv)
     int imageWidth = 0;
     int imageHeight = 0;
     stbi_uc* imagePixels = nullptr;
-    const std::filesystem::path exeDir = argc > 0 ? std::filesystem::path(argv[0]).parent_path() : std::filesystem::path{};
+    const std::filesystem::path exeDir =
+        argc > 0 ? std::filesystem::path(argv[0]).parent_path() : std::filesystem::path{};
     const std::array<std::filesystem::path, 3> imagePaths = {
         exeDir / "test.png",
         "test.png",
@@ -132,11 +134,9 @@ int main(int argc, char** argv)
     const uint32_t mipLevels = calculateMipLevels(textureWidth, textureHeight);
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
-        vertices.data());
+        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, vertices.data());
     BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(indices), .usage = BufferUsage::Index | BufferUsage::CopyDst},
-        indices.data());
+        BufferDesc{.size = sizeof(indices), .usage = BufferUsage::Index | BufferUsage::CopyDst}, indices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -229,8 +229,8 @@ int main(int argc, char** argv)
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (!vertexBuffer || !indexBuffer || !vertexShader || !fragmentShader || !texture || !textureView || !sampler
-        || !bindGroupLayout || !layout || !bindGroup || !pipeline) {
+    if (!vertexBuffer || !indexBuffer || !vertexShader || !fragmentShader || !texture || !textureView || !sampler ||
+        !bindGroupLayout || !layout || !bindGroup || !pipeline) {
         std::printf("Failed to create textured quad resources.\n");
         instance->shutdown();
         return 1;
@@ -238,16 +238,20 @@ int main(int argc, char** argv)
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = ClearColor{0.06f, 0.07f, 0.09f, 1.0f},
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
@@ -259,7 +263,8 @@ int main(int argc, char** argv)
         commands.endRenderPass();
         commands.end();
 
-        swapchain->present();
+        device->submit(&frame);
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

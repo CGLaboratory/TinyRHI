@@ -1,10 +1,11 @@
-#include "TinyRHI/backend_factory.h"
 #include "common/win32_window.h"
+#include "TinyRHI/backend_factory.h"
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+
+#include <chrono>
 #include <thread>
 #include <vector>
 
@@ -86,14 +87,14 @@ int main()
         const float* horizontalColor = i == 0 ? xAxisColor : gridColor;
         vertices.push_back(Vertex{{-0.82f, p, 0.0f},
                                   {horizontalColor[0], horizontalColor[1], horizontalColor[2], horizontalColor[3]}});
-        vertices.push_back(Vertex{{0.82f, p, 0.0f},
-                                  {horizontalColor[0], horizontalColor[1], horizontalColor[2], horizontalColor[3]}});
+        vertices.push_back(
+            Vertex{{0.82f, p, 0.0f}, {horizontalColor[0], horizontalColor[1], horizontalColor[2], horizontalColor[3]}});
 
         const float* verticalColor = i == 0 ? yAxisColor : gridColor;
-        vertices.push_back(Vertex{{p, -0.82f, 0.0f},
-                                  {verticalColor[0], verticalColor[1], verticalColor[2], verticalColor[3]}});
-        vertices.push_back(Vertex{{p, 0.82f, 0.0f},
-                                  {verticalColor[0], verticalColor[1], verticalColor[2], verticalColor[3]}});
+        vertices.push_back(
+            Vertex{{p, -0.82f, 0.0f}, {verticalColor[0], verticalColor[1], verticalColor[2], verticalColor[3]}});
+        vertices.push_back(
+            Vertex{{p, 0.82f, 0.0f}, {verticalColor[0], verticalColor[1], verticalColor[2], verticalColor[3]}});
     }
 
     BufferHandle vertexBuffer = device->createBuffer(
@@ -143,16 +144,20 @@ int main()
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = ClearColor{0.045f, 0.048f, 0.055f, 1.0f},
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
@@ -162,7 +167,8 @@ int main()
         commands.endRenderPass();
         commands.end();
 
-        swapchain->present();
+        device->submit(&frame);
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

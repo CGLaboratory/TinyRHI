@@ -12,15 +12,20 @@ struct SwapchainDesc {
     bool vsync{true};
 };
 
+struct SwapchainFrame {
+    SwapchainHandle swapchain{};
+    TextureViewHandle color_view{};
+    TextureViewHandle depth_stencil_view{};
+    uint32_t width{0};
+    uint32_t height{0};
+};
+
 class Swapchain {
 public:
     virtual ~Swapchain() = default;
 
-    virtual TextureViewHandle getCurrentColorTextureView() const = 0;
-    virtual TextureViewHandle getDepthStencilTextureView() const = 0;
     virtual uint32_t getWidth() const = 0;
     virtual uint32_t getHeight() const = 0;
     virtual void resize(uint32_t width, uint32_t height) = 0;
-    virtual void present() = 0;
 };
 } // namespace lunalite::rhi

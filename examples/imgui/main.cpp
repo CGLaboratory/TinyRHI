@@ -1,14 +1,13 @@
+#include "common/win32_window.h"
 #include "imgui_sample_app.h"
 #include "tiny_rhi_imgui_renderer.h"
+#include "TinyRHI/backend_factory.h"
 #include "win32_imgui_platform.h"
 
-#include "TinyRHI/backend_factory.h"
-#include "common/win32_window.h"
-
-#include <imgui.h>
+#include <cstdio>
 
 #include <chrono>
-#include <cstdio>
+#include <imgui.h>
 #include <memory>
 #include <thread>
 
@@ -23,7 +22,7 @@ int main()
     }
 
     tinyrhi_examples::Win32Window surface;
-    if (!surface.create("TinyRHI ImGui", 1280, 720)) {
+    if (!surface.create("TinyRHI ImGui", 1'280, 720)) {
         std::printf("Failed to create Win32 surface.\n");
         return 1;
     }
@@ -89,29 +88,34 @@ int main()
         ImGui::Render();
 
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = app.clearColor(),
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
         renderer.render(ImGui::GetDrawData(), commands);
         commands.endRenderPass();
         commands.end();
+        device->submit(&frame);
 
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault(nullptr, &renderer);
         }
 
-        swapchain->present();
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

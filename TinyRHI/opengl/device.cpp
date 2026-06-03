@@ -226,6 +226,47 @@ CommandList& OpenGLDevice::getCommandList()
     return *m_command_list;
 }
 
+bool OpenGLDevice::beginFrame(SwapchainHandle swapchain, SwapchainFrame& frame)
+{
+    auto* glSwapchain = getOpenGLSwapchain(swapchain);
+    if (glSwapchain == nullptr) {
+        return false;
+    }
+
+    if (!makeSwapchainCurrent(swapchain)) {
+        return false;
+    }
+
+    frame = SwapchainFrame{
+        .swapchain = swapchain,
+        .color_view = glSwapchain->getCurrentColorTextureView(),
+        .depth_stencil_view = glSwapchain->getDepthStencilTextureView(),
+        .width = glSwapchain->getWidth(),
+        .height = glSwapchain->getHeight(),
+    };
+    m_active_frame_swapchain = swapchain;
+    return true;
+}
+
+void OpenGLDevice::submit(const SwapchainFrame* frame)
+{
+    (void) frame;
+    glFlush();
+}
+
+void OpenGLDevice::present(const SwapchainFrame& frame)
+{
+    auto* glSwapchain = getOpenGLSwapchain(frame.swapchain);
+    if (glSwapchain == nullptr) {
+        return;
+    }
+
+    glSwapchain->present();
+    if (m_active_frame_swapchain == frame.swapchain) {
+        m_active_frame_swapchain = {};
+    }
+}
+
 Surface* OpenGLDevice::getSurface(SurfaceHandle handle)
 {
     return m_surface_resolver ? m_surface_resolver(handle) : nullptr;

@@ -280,19 +280,24 @@ int main()
     };
     commands.resourceBarrier(&brdfLutBarrier, 1);
     commands.end();
+    device->submit();
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = ClearColor{0.02f, 0.025f, 0.03f, 1.0f},
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
@@ -302,7 +307,8 @@ int main()
         commands.endRenderPass();
         commands.end();
 
-        swapchain->present();
+        device->submit(&frame);
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

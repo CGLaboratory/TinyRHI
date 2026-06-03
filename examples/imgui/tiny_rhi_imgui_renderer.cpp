@@ -1,9 +1,10 @@
 #include "tiny_rhi_imgui_renderer.h"
 
-#include <algorithm>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+
+#include <algorithm>
 #include <limits>
 
 using namespace lunalite::rhi;
@@ -45,8 +46,8 @@ void main()
 }
 )GLSL";
 
-constexpr size_t kInitialVertexBufferSize = 5000 * sizeof(ImDrawVert);
-constexpr size_t kInitialIndexBufferSize = 10000 * sizeof(ImDrawIdx);
+constexpr size_t kInitialVertexBufferSize = 5'000 * sizeof(ImDrawVert);
+constexpr size_t kInitialIndexBufferSize = 10'000 * sizeof(ImDrawIdx);
 constexpr uint32_t kProjectionMatrixSize = 16 * sizeof(float);
 
 ImTextureID textureIdFromBindGroup(BindGroupHandle bind_group)
@@ -58,6 +59,8 @@ struct ViewportRenderData {
     SurfaceHandle surface{};
     SwapchainHandle swapchain_handle{};
     Swapchain* swapchain{nullptr};
+    SwapchainFrame frame{};
+    bool frame_pending{false};
 };
 
 uint32_t viewportDimension(float value)
@@ -163,10 +166,8 @@ void TinyRHIImGuiRenderer::render(ImDrawData* draw_data, CommandList& commands)
         return;
     }
 
-    const int framebufferWidth =
-        static_cast<int>(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
-    const int framebufferHeight =
-        static_cast<int>(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+    const int framebufferWidth = static_cast<int>(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+    const int framebufferHeight = static_cast<int>(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
     if (framebufferWidth <= 0 || framebufferHeight <= 0) {
         return;
     }
@@ -258,10 +259,9 @@ void TinyRHIImGuiRenderer::render(ImDrawData* draw_data, CommandList& commands)
 
             commands.setScissor(0, &scissor, 1);
             commands.setBindGroup(0, bindGroup);
-            commands.drawIndexed(
-                drawCommand->ElemCount,
-                drawCommand->IdxOffset + globalIndexOffset,
-                static_cast<int32_t>(drawCommand->VtxOffset) + globalVertexOffset);
+            commands.drawIndexed(drawCommand->ElemCount,
+                                 drawCommand->IdxOffset + globalIndexOffset,
+                                 static_cast<int32_t>(drawCommand->VtxOffset) + globalVertexOffset);
         }
 
         globalIndexOffset += static_cast<uint32_t>(commandList->IdxBuffer.Size);
@@ -339,6 +339,8 @@ void TinyRHIImGuiRenderer::destroyViewportWindow(ImGuiViewport* viewport)
         data->swapchain = nullptr;
         data->swapchain_handle = {};
         data->surface = {};
+        data->frame = {};
+        data->frame_pending = false;
         IM_DELETE(data);
     }
 
@@ -367,9 +369,11 @@ void TinyRHIImGuiRenderer::setViewportWindowSize(ImGuiViewport* viewport, ImVec2
 void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
 {
     auto* data = viewportRenderData(viewport);
-    if (data == nullptr || data->swapchain == nullptr || viewport == nullptr || viewport->DrawData == nullptr) {
+    if (m_device == nullptr || data == nullptr || data->swapchain == nullptr || viewport == nullptr ||
+        viewport->DrawData == nullptr) {
         return;
     }
+    data->frame_pending = false;
 
     const uint32_t width = viewportDimension(viewport->Size.x);
     const uint32_t height = viewportDimension(viewport->Size.y);
@@ -380,15 +384,20 @@ void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
     }
     data->swapchain->resize(width, height);
 
+    SwapchainFrame frame{};
+    if (!m_device->beginFrame(data->swapchain_handle, frame)) {
+        return;
+    }
+
     RenderPassBeginInfo pass{};
     pass.color_attachments.push_back(ColorAttachmentDesc{
-        .view = data->swapchain->getCurrentColorTextureView(),
+        .view = frame.color_view,
         .load_op = (viewport->Flags & ImGuiViewportFlags_NoRendererClear) ? LoadOp::Load : LoadOp::Clear,
         .store_op = StoreOp::Store,
         .clear_color = ClearColor{0.0f, 0.0f, 0.0f, 1.0f},
     });
-    pass.width = data->swapchain->getWidth();
-    pass.height = data->swapchain->getHeight();
+    pass.width = frame.width;
+    pass.height = frame.height;
 
     auto& commands = m_device->getCommandList();
     commands.begin();
@@ -396,13 +405,17 @@ void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
     render(viewport->DrawData, commands);
     commands.endRenderPass();
     commands.end();
+    m_device->submit(&frame);
+    data->frame = frame;
+    data->frame_pending = true;
 }
 
 void TinyRHIImGuiRenderer::swapViewportBuffers(ImGuiViewport* viewport)
 {
     auto* data = viewportRenderData(viewport);
-    if (data != nullptr && data->swapchain != nullptr) {
-        data->swapchain->present();
+    if (m_device != nullptr && data != nullptr && data->swapchain != nullptr && data->frame_pending) {
+        m_device->present(data->frame);
+        data->frame_pending = false;
     }
 }
 
@@ -578,11 +591,13 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
             m_device->destroyBuffer(m_vertex_buffer);
         }
         m_vertex_buffer_size = std::max(requiredVertexBytes, kInitialVertexBufferSize);
-        m_vertex_buffer = m_device->createBuffer(BufferDesc{
-            .size = m_vertex_buffer_size,
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .memory = MemoryUsage::CpuToGpu,
-        }, nullptr);
+        m_vertex_buffer = m_device->createBuffer(
+            BufferDesc{
+                .size = m_vertex_buffer_size,
+                .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+                .memory = MemoryUsage::CpuToGpu,
+            },
+            nullptr);
     }
 
     if (!m_index_buffer || m_index_buffer_size < requiredIndexBytes) {
@@ -590,11 +605,13 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
             m_device->destroyBuffer(m_index_buffer);
         }
         m_index_buffer_size = std::max(requiredIndexBytes, kInitialIndexBufferSize);
-        m_index_buffer = m_device->createBuffer(BufferDesc{
-            .size = m_index_buffer_size,
-            .usage = BufferUsage::Index | BufferUsage::CopyDst,
-            .memory = MemoryUsage::CpuToGpu,
-        }, nullptr);
+        m_index_buffer = m_device->createBuffer(
+            BufferDesc{
+                .size = m_index_buffer_size,
+                .usage = BufferUsage::Index | BufferUsage::CopyDst,
+                .memory = MemoryUsage::CpuToGpu,
+            },
+            nullptr);
     }
 
     return m_vertex_buffer && m_index_buffer;

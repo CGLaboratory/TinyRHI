@@ -16,12 +16,12 @@ public:
 
     bool initialize();
 
-    TextureViewHandle getCurrentColorTextureView() const override;
-    TextureViewHandle getDepthStencilTextureView() const override;
+    TextureViewHandle getCurrentColorTextureView() const;
+    TextureViewHandle getDepthStencilTextureView() const;
     uint32_t getWidth() const override;
     uint32_t getHeight() const override;
     void resize(uint32_t width, uint32_t height) override;
-    void present() override;
+    void present();
 
     SwapchainHandle handle() const;
     OpenGLNativeSwapchain& nativeSwapchain();

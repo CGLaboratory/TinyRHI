@@ -51,6 +51,10 @@ public:
     virtual void destroySwapchain(SwapchainHandle swapchain) = 0;
     virtual Swapchain* getSwapchain(SwapchainHandle swapchain) = 0;
 
+    virtual bool beginFrame(SwapchainHandle swapchain, SwapchainFrame& frame) = 0;
+    virtual void submit(const SwapchainFrame* frame = nullptr) = 0;
+    virtual void present(const SwapchainFrame& frame) = 0;
+
     virtual CommandList& getCommandList() = 0;
 };
 } // namespace lunalite::rhi

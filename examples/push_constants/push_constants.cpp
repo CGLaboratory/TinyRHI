@@ -1,11 +1,12 @@
-#include "TinyRHI/backend_factory.h"
 #include "common/win32_window.h"
+#include "TinyRHI/backend_factory.h"
 
-#include <array>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+
+#include <array>
+#include <chrono>
 #include <thread>
 
 using namespace lunalite::rhi;
@@ -82,8 +83,7 @@ int main()
     }};
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
-        vertices.data());
+        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, vertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -128,6 +128,10 @@ int main()
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         const auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
         const PushConstants constants{{
@@ -139,13 +143,13 @@ int main()
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = ClearColor{0.045f, 0.05f, 0.06f, 1.0f},
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
@@ -156,7 +160,8 @@ int main()
         commands.endRenderPass();
         commands.end();
 
-        swapchain->present();
+        device->submit(&frame);
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 

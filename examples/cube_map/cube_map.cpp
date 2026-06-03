@@ -1,14 +1,14 @@
-#include "TinyRHI/backend_factory.h"
 #include "common/win32_window.h"
-
 #include "stb_image.h"
+#include "TinyRHI/backend_factory.h"
+
+#include <cmath>
+#include <cstddef>
+#include <cstdio>
 
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <cmath>
-#include <cstddef>
-#include <cstdio>
 #include <filesystem>
 #include <string>
 #include <thread>
@@ -39,18 +39,15 @@ struct PushConstants {
 };
 
 constexpr std::array<Vertex, 36> kCubeVertices = {{
-    {{-1.0f, 1.0f, -1.0f}},  {{-1.0f, -1.0f, -1.0f}}, {{1.0f, -1.0f, -1.0f}},
-    {{1.0f, -1.0f, -1.0f}},  {{1.0f, 1.0f, -1.0f}},   {{-1.0f, 1.0f, -1.0f}},
-    {{-1.0f, -1.0f, 1.0f}},  {{-1.0f, -1.0f, -1.0f}}, {{-1.0f, 1.0f, -1.0f}},
-    {{-1.0f, 1.0f, -1.0f}},  {{-1.0f, 1.0f, 1.0f}},   {{-1.0f, -1.0f, 1.0f}},
-    {{1.0f, -1.0f, -1.0f}},  {{1.0f, -1.0f, 1.0f}},   {{1.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}},    {{1.0f, 1.0f, -1.0f}},   {{1.0f, -1.0f, -1.0f}},
-    {{-1.0f, -1.0f, 1.0f}},  {{-1.0f, 1.0f, 1.0f}},   {{1.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}},    {{1.0f, -1.0f, 1.0f}},   {{-1.0f, -1.0f, 1.0f}},
-    {{-1.0f, 1.0f, -1.0f}},  {{1.0f, 1.0f, -1.0f}},   {{1.0f, 1.0f, 1.0f}},
-    {{1.0f, 1.0f, 1.0f}},    {{-1.0f, 1.0f, 1.0f}},   {{-1.0f, 1.0f, -1.0f}},
-    {{-1.0f, -1.0f, -1.0f}}, {{-1.0f, -1.0f, 1.0f}},  {{1.0f, -1.0f, -1.0f}},
-    {{1.0f, -1.0f, -1.0f}},  {{-1.0f, -1.0f, 1.0f}},  {{1.0f, -1.0f, 1.0f}},
+    {{-1.0f, 1.0f, -1.0f}}, {{-1.0f, -1.0f, -1.0f}}, {{1.0f, -1.0f, -1.0f}},  {{1.0f, -1.0f, -1.0f}},
+    {{1.0f, 1.0f, -1.0f}},  {{-1.0f, 1.0f, -1.0f}},  {{-1.0f, -1.0f, 1.0f}},  {{-1.0f, -1.0f, -1.0f}},
+    {{-1.0f, 1.0f, -1.0f}}, {{-1.0f, 1.0f, -1.0f}},  {{-1.0f, 1.0f, 1.0f}},   {{-1.0f, -1.0f, 1.0f}},
+    {{1.0f, -1.0f, -1.0f}}, {{1.0f, -1.0f, 1.0f}},   {{1.0f, 1.0f, 1.0f}},    {{1.0f, 1.0f, 1.0f}},
+    {{1.0f, 1.0f, -1.0f}},  {{1.0f, -1.0f, -1.0f}},  {{-1.0f, -1.0f, 1.0f}},  {{-1.0f, 1.0f, 1.0f}},
+    {{1.0f, 1.0f, 1.0f}},   {{1.0f, 1.0f, 1.0f}},    {{1.0f, -1.0f, 1.0f}},   {{-1.0f, -1.0f, 1.0f}},
+    {{-1.0f, 1.0f, -1.0f}}, {{1.0f, 1.0f, -1.0f}},   {{1.0f, 1.0f, 1.0f}},    {{1.0f, 1.0f, 1.0f}},
+    {{-1.0f, 1.0f, 1.0f}},  {{-1.0f, 1.0f, -1.0f}},  {{-1.0f, -1.0f, -1.0f}}, {{-1.0f, -1.0f, 1.0f}},
+    {{1.0f, -1.0f, -1.0f}}, {{1.0f, -1.0f, -1.0f}},  {{-1.0f, -1.0f, 1.0f}},  {{1.0f, -1.0f, 1.0f}},
 }};
 
 constexpr const char* kVertexShader = R"GLSL(
@@ -239,12 +236,11 @@ std::vector<float> makeCubemapFace(const float* hdr, int width, int height, uint
     std::vector<float> pixels(static_cast<size_t>(size) * static_cast<size_t>(size) * 4);
     for (uint32_t y = 0; y < size; ++y) {
         for (uint32_t x = 0; x < size; ++x) {
-            sampleEquirectangular(
-                hdr,
-                width,
-                height,
-                cubeDirection(face, x, y, size),
-                pixels.data() + (static_cast<size_t>(y) * static_cast<size_t>(size) + x) * 4);
+            sampleEquirectangular(hdr,
+                                  width,
+                                  height,
+                                  cubeDirection(face, x, y, size),
+                                  pixels.data() + (static_cast<size_t>(y) * static_cast<size_t>(size) + x) * 4);
         }
     }
 
@@ -253,7 +249,8 @@ std::vector<float> makeCubemapFace(const float* hdr, int width, int height, uint
 
 std::string findAssetPath(int argc, char** argv)
 {
-    const std::filesystem::path exeDir = argc > 0 ? std::filesystem::path(argv[0]).parent_path() : std::filesystem::path{};
+    const std::filesystem::path exeDir =
+        argc > 0 ? std::filesystem::path(argv[0]).parent_path() : std::filesystem::path{};
     const std::array<std::filesystem::path, 3> paths = {
         exeDir / "newport_loft.hdr",
         "newport_loft.hdr",
@@ -419,8 +416,8 @@ int main(int argc, char** argv)
     pipelineDesc.raster_state.cull_mode = CullMode::None;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (!environmentView || !environmentSampler || !vertexBuffer || !vertexShader || !fragmentShader || !bindGroupLayout ||
-        !layout || !bindGroup || !pipeline) {
+    if (!environmentView || !environmentSampler || !vertexBuffer || !vertexShader || !fragmentShader ||
+        !bindGroupLayout || !layout || !bindGroup || !pipeline) {
         std::printf("Failed to create cubemap example resources.\n");
         instance->shutdown();
         return 1;
@@ -431,11 +428,14 @@ int main(int argc, char** argv)
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
+        SwapchainFrame frame{};
+        if (!device->beginFrame(swapchainHandle, frame)) {
+            break;
+        }
 
         const auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-        const float aspect = swapchain->getHeight() > 0
-                                 ? static_cast<float>(swapchain->getWidth()) / static_cast<float>(swapchain->getHeight())
-                                 : 1.0f;
+        const float aspect =
+            frame.height > 0 ? static_cast<float>(frame.width) / static_cast<float>(frame.height) : 1.0f;
         const Vec3 eye{std::sin(elapsed * 0.2f), 0.15f, std::cos(elapsed * 0.2f)};
         const Mat4 projection = perspective(70.0f * kPi / 180.0f, aspect, 0.1f, 10.0f);
         const Mat4 view = lookAtRotation(eye, Vec3{}, Vec3{0.0f, 1.0f, 0.0f});
@@ -443,13 +443,13 @@ int main(int argc, char** argv)
 
         RenderPassBeginInfo pass{};
         pass.color_attachments.push_back(ColorAttachmentDesc{
-            .view = swapchain->getCurrentColorTextureView(),
+            .view = frame.color_view,
             .load_op = LoadOp::Clear,
             .store_op = StoreOp::Store,
             .clear_color = ClearColor{0.0f, 0.0f, 0.0f, 1.0f},
         });
-        pass.width = swapchain->getWidth();
-        pass.height = swapchain->getHeight();
+        pass.width = frame.width;
+        pass.height = frame.height;
 
         commands.begin();
         commands.beginRenderPass(pass);
@@ -461,7 +461,8 @@ int main(int argc, char** argv)
         commands.endRenderPass();
         commands.end();
 
-        swapchain->present();
+        device->submit(&frame);
+        device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
