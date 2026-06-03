@@ -25,6 +25,39 @@ bool hasUsage(TextureUsage usage, TextureUsage required)
     return (usage & required) == required;
 }
 
+size_t textureFormatBytesPerPixel(TextureFormat format)
+{
+    switch (format) {
+        case TextureFormat::RGBA8_UNorm:
+        case TextureFormat::RGBA8_SRGB:
+            return 4;
+        case TextureFormat::RG16F:
+            return 4;
+        case TextureFormat::RG32F:
+            return 8;
+        case TextureFormat::RGBA16F:
+            return 8;
+        case TextureFormat::RGBA32F:
+            return 16;
+        case TextureFormat::Depth24Stencil8:
+            return 4;
+        case TextureFormat::Depth32F:
+            return 4;
+    }
+
+    return 4;
+}
+
+uint32_t textureMipDimension(uint32_t baseDimension, uint32_t mipLevel)
+{
+    uint32_t dimension = baseDimension;
+    for (uint32_t level = 0; level < mipLevel && dimension > 1; ++level) {
+        dimension /= 2;
+    }
+
+    return dimension == 0 ? 1 : dimension;
+}
+
 const BindGroupLayoutEntry* findLayoutEntry(const BindGroupLayoutDesc& layout, uint32_t binding)
 {
     for (const auto& entry : layout.entries) {
@@ -809,6 +842,147 @@ void OpenGLCommandList::transition(const TextureTransition* transitions, uint32_
 
     if (bits != 0) {
         glMemoryBarrier(bits);
+    }
+}
+
+void OpenGLCommandList::copyBufferToBuffer(BufferHandle src,
+                                           BufferHandle dst,
+                                           const BufferCopyRegion* regions,
+                                           uint32_t count)
+{
+    if (regions == nullptr || count == 0) {
+        return;
+    }
+
+    auto* srcBuffer = m_device.getBuffer(src);
+    auto* dstBuffer = m_device.getBuffer(dst);
+    if (srcBuffer == nullptr || dstBuffer == nullptr) {
+        return;
+    }
+    if (!hasUsage(srcBuffer->usage, BufferUsage::CopySrc) || srcBuffer->state != ResourceState::CopySrc) {
+        std::printf("OpenGL buffer copy failed: source buffer is not in CopySrc state or usage.\n");
+        return;
+    }
+    if (!hasUsage(dstBuffer->usage, BufferUsage::CopyDst) || dstBuffer->state != ResourceState::CopyDst) {
+        std::printf("OpenGL buffer copy failed: destination buffer is not in CopyDst state or usage.\n");
+        return;
+    }
+
+    bool copied = false;
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto& region = regions[i];
+        if (region.size == 0 || region.src_offset > srcBuffer->size ||
+            region.size > srcBuffer->size - region.src_offset || region.dst_offset > dstBuffer->size ||
+            region.size > dstBuffer->size - region.dst_offset) {
+            continue;
+        }
+
+        glCopyNamedBufferSubData(srcBuffer->id,
+                                 dstBuffer->id,
+                                 static_cast<GLintptr>(region.src_offset),
+                                 static_cast<GLintptr>(region.dst_offset),
+                                 static_cast<GLsizeiptr>(region.size));
+        copied = true;
+    }
+
+    if (copied) {
+        glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+    }
+}
+
+void OpenGLCommandList::copyBufferToTexture(BufferHandle src,
+                                            TextureHandle dst,
+                                            const BufferTextureCopyRegion* regions,
+                                            uint32_t count)
+{
+    if (regions == nullptr || count == 0) {
+        return;
+    }
+
+    auto* srcBuffer = m_device.getBuffer(src);
+    auto* dstTexture = m_device.getTexture(dst);
+    if (srcBuffer == nullptr || dstTexture == nullptr || dstTexture->is_swapchain_backbuffer ||
+        isDepthFormat(dstTexture->desc.format)) {
+        return;
+    }
+    if (!hasUsage(srcBuffer->usage, BufferUsage::CopySrc) || srcBuffer->state != ResourceState::CopySrc) {
+        std::printf("OpenGL texture copy failed: source buffer is not in CopySrc state or usage.\n");
+        return;
+    }
+    if (!hasUsage(dstTexture->desc.usage, TextureUsage::CopyDst) || dstTexture->state != ResourceState::CopyDst) {
+        std::printf("OpenGL texture copy failed: destination texture is not in CopyDst state or usage.\n");
+        return;
+    }
+
+    GLint previousBuffer = 0;
+    GLint previousAlignment = 4;
+    GLint previousRowLength = 0;
+    glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &previousBuffer);
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousAlignment);
+    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &previousRowLength);
+
+    const auto bytesPerPixel = textureFormatBytesPerPixel(dstTexture->desc.format);
+    bool copied = false;
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, srcBuffer->id);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    for (uint32_t i = 0; i < count; ++i) {
+        const auto& region = regions[i];
+        if (region.texture_width == 0 || region.texture_height == 0 ||
+            region.mip_level >= dstTexture->desc.mip_levels || region.array_layer >= dstTexture->desc.array_layers ||
+            region.buffer_offset > srcBuffer->size) {
+            continue;
+        }
+
+        const uint32_t mipWidth = textureMipDimension(dstTexture->desc.width, region.mip_level);
+        const uint32_t mipHeight = textureMipDimension(dstTexture->desc.height, region.mip_level);
+        if (region.texture_x > mipWidth || region.texture_y > mipHeight ||
+            region.texture_width > mipWidth - region.texture_x ||
+            region.texture_height > mipHeight - region.texture_y) {
+            continue;
+        }
+
+        const size_t rowPitch = region.buffer_row_pitch == 0 ? static_cast<size_t>(region.texture_width) * bytesPerPixel
+                                                             : region.buffer_row_pitch;
+        if (rowPitch % bytesPerPixel != 0 || rowPitch < static_cast<size_t>(region.texture_width) * bytesPerPixel ||
+            rowPitch > (srcBuffer->size - region.buffer_offset) / region.texture_height) {
+            continue;
+        }
+
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bytesPerPixel));
+        const auto* bufferOffset = reinterpret_cast<const void*>(region.buffer_offset);
+        if (dstTexture->desc.dimension == TextureDimension::TextureCube) {
+            glTextureSubImage3D(dstTexture->id,
+                                static_cast<GLint>(region.mip_level),
+                                static_cast<GLint>(region.texture_x),
+                                static_cast<GLint>(region.texture_y),
+                                static_cast<GLint>(region.array_layer),
+                                static_cast<GLsizei>(region.texture_width),
+                                static_cast<GLsizei>(region.texture_height),
+                                1,
+                                toGLTextureUploadFormat(dstTexture->desc.format),
+                                toGLTextureUploadType(dstTexture->desc.format),
+                                bufferOffset);
+        } else {
+            glTextureSubImage2D(dstTexture->id,
+                                static_cast<GLint>(region.mip_level),
+                                static_cast<GLint>(region.texture_x),
+                                static_cast<GLint>(region.texture_y),
+                                static_cast<GLsizei>(region.texture_width),
+                                static_cast<GLsizei>(region.texture_height),
+                                toGLTextureUploadFormat(dstTexture->desc.format),
+                                toGLTextureUploadType(dstTexture->desc.format),
+                                bufferOffset);
+        }
+        copied = true;
+    }
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(previousBuffer));
+
+    if (copied) {
+        glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
     }
 }
 

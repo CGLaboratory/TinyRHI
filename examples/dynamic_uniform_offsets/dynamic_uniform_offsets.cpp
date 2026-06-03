@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "common/win32_window.h"
 #include "TinyRHI/backend_factory.h"
 
@@ -101,18 +102,19 @@ int main()
     *leftColor = UniformData{{0.92f, 0.24f, 0.18f, 1.0f}};
     *rightColor = UniformData{{0.18f, 0.45f, 0.95f, 1.0f}};
 
-    BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(vertices),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        vertices.data());
+    BufferHandle vertexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                     commandListHandle,
+                                                                     BufferDesc{
+                                                                         .size = sizeof(vertices),
+                                                                         .usage = BufferUsage::Vertex,
+                                                                         .initial_state = ResourceState::VertexBuffer,
+                                                                     },
+                                                                     vertices.data());
     BufferHandle uniformBuffer = device->createBuffer(BufferDesc{.size = uniformData.size(),
-                                                                 .usage = BufferUsage::Uniform | BufferUsage::CopyDst,
+                                                                 .usage = BufferUsage::Uniform,
                                                                  .memory = MemoryUsage::CpuToGpu,
-                                                                 .initial_state = ResourceState::UniformRead},
-                                                      uniformData.data());
+                                                                 .initial_state = ResourceState::UniformRead});
+    device->updateBuffer(uniformBuffer, 0, uniformData.data(), uniformData.size());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});

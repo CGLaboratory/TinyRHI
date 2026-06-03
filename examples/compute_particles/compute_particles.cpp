@@ -129,14 +129,12 @@ int main()
     }
     auto& commands = *commandList;
 
-    BufferHandle particleBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(Particle) * kParticleCount,
-            .usage = BufferUsage::Vertex | BufferUsage::Storage,
-            .memory = MemoryUsage::GpuOnly,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        nullptr);
+    BufferHandle particleBuffer = device->createBuffer(BufferDesc{
+        .size = sizeof(Particle) * kParticleCount,
+        .usage = BufferUsage::Vertex | BufferUsage::Storage,
+        .memory = MemoryUsage::GpuOnly,
+        .initial_state = ResourceState::VertexBuffer,
+    });
 
     ShaderHandle computeShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Compute, .source = kComputeShader});

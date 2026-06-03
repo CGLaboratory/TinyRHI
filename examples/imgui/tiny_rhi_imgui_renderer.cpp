@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "tiny_rhi_imgui_renderer.h"
 
 #include <cstdint>
@@ -585,25 +586,20 @@ bool TinyRHIImGuiRenderer::createFontTexture()
         return false;
     }
 
-    TextureUploadDesc upload{};
-    upload.width = static_cast<uint32_t>(width);
-    upload.height = static_cast<uint32_t>(height);
-    upload.format = TextureFormat::RGBA8_UNorm;
-    upload.data = pixels;
-    upload.row_pitch = static_cast<size_t>(width) * static_cast<size_t>(bytesPerPixel);
-    m_device->updateTexture(m_font_texture, upload);
-    auto* commandList = m_device->getCommandList(m_command_list);
-    if (commandList == nullptr) {
+    const size_t rowPitch = static_cast<size_t>(width) * static_cast<size_t>(bytesPerPixel);
+    if (!uploadTextureData(*m_device,
+                           m_command_list,
+                           m_font_texture,
+                           TextureUploadData{
+                               .data = pixels,
+                               .size = rowPitch * static_cast<size_t>(height),
+                               .row_pitch = rowPitch,
+                               .width = static_cast<uint32_t>(width),
+                               .height = static_cast<uint32_t>(height),
+                           }) ||
+        !transitionTextureToShaderRead(*m_device, m_command_list, m_font_texture, false)) {
         return false;
     }
-    TextureTransition fontTextureReadyTransition{
-        .texture = m_font_texture,
-        .state = ResourceState::ShaderRead,
-    };
-    commandList->begin();
-    commandList->transition(&fontTextureReadyTransition, 1);
-    commandList->end();
-    m_device->submit(m_command_list);
 
     ImGui::GetIO().Fonts->SetTexID(textureIdFromBindGroup(m_font_bind_group));
     return true;
@@ -619,14 +615,12 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
             m_device->destroyBuffer(m_vertex_buffer);
         }
         m_vertex_buffer_size = std::max(requiredVertexBytes, kInitialVertexBufferSize);
-        m_vertex_buffer = m_device->createBuffer(
-            BufferDesc{
-                .size = m_vertex_buffer_size,
-                .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-                .memory = MemoryUsage::CpuToGpu,
-                .initial_state = ResourceState::VertexBuffer,
-            },
-            nullptr);
+        m_vertex_buffer = m_device->createBuffer(BufferDesc{
+            .size = m_vertex_buffer_size,
+            .usage = BufferUsage::Vertex,
+            .memory = MemoryUsage::CpuToGpu,
+            .initial_state = ResourceState::VertexBuffer,
+        });
     }
 
     if (!m_index_buffer || m_index_buffer_size < requiredIndexBytes) {
@@ -634,14 +628,12 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
             m_device->destroyBuffer(m_index_buffer);
         }
         m_index_buffer_size = std::max(requiredIndexBytes, kInitialIndexBufferSize);
-        m_index_buffer = m_device->createBuffer(
-            BufferDesc{
-                .size = m_index_buffer_size,
-                .usage = BufferUsage::Index | BufferUsage::CopyDst,
-                .memory = MemoryUsage::CpuToGpu,
-                .initial_state = ResourceState::IndexBuffer,
-            },
-            nullptr);
+        m_index_buffer = m_device->createBuffer(BufferDesc{
+            .size = m_index_buffer_size,
+            .usage = BufferUsage::Index,
+            .memory = MemoryUsage::CpuToGpu,
+            .initial_state = ResourceState::IndexBuffer,
+        });
     }
 
     return m_vertex_buffer && m_index_buffer;

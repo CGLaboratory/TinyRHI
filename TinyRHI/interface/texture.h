@@ -94,18 +94,6 @@ struct TextureViewDesc {
     uint32_t array_layer_count{1};
 };
 
-struct TextureUploadDesc {
-    uint32_t x{0};
-    uint32_t y{0};
-    uint32_t width{0};
-    uint32_t height{0};
-    uint32_t mip_level{0};
-    uint32_t array_layer{0};
-    TextureFormat format{TextureFormat::RGBA8_UNorm};
-    const void* data{nullptr};
-    size_t row_pitch{0};
-};
-
 inline TextureDesc normalizeTextureDesc(TextureDesc desc)
 {
     if (desc.dimension == TextureDimension::TextureCube && desc.array_layers == 1) {

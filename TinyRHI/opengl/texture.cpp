@@ -1,44 +1,8 @@
 #include "device.h"
 #include "gl_convert.h"
 
-#include <cstddef>
-#include <cstdio>
-
 namespace lunalite::rhi {
 namespace {
-size_t textureFormatBytesPerPixel(TextureFormat format)
-{
-    switch (format) {
-        case TextureFormat::RGBA8_UNorm:
-        case TextureFormat::RGBA8_SRGB:
-            return 4;
-        case TextureFormat::RG16F:
-            return 4;
-        case TextureFormat::RG32F:
-            return 8;
-        case TextureFormat::RGBA16F:
-            return 8;
-        case TextureFormat::RGBA32F:
-            return 16;
-        case TextureFormat::Depth24Stencil8:
-            return 4;
-        case TextureFormat::Depth32F:
-            return 4;
-    }
-
-    return 4;
-}
-
-uint32_t textureMipDimension(uint32_t baseDimension, uint32_t mipLevel)
-{
-    uint32_t dimension = baseDimension;
-    for (uint32_t level = 0; level < mipLevel && dimension > 1; ++level) {
-        dimension /= 2;
-    }
-
-    return dimension == 0 ? 1 : dimension;
-}
-
 bool hasUsage(TextureUsage usage, TextureUsage required)
 {
     return (usage & required) == required;
@@ -106,70 +70,6 @@ TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
         .is_swapchain_backbuffer = false,
     });
     return makeHandle<TextureHandle>(m_textures.size() - 1);
-}
-
-void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc& desc)
-{
-    auto* glTexture = getTexture(texture);
-    if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || desc.data == nullptr || desc.width == 0 ||
-        desc.height == 0 || desc.mip_level >= glTexture->desc.mip_levels ||
-        desc.array_layer >= glTexture->desc.array_layers) {
-        return;
-    }
-    if (!hasUsage(glTexture->desc.usage, TextureUsage::CopyDst)) {
-        std::printf("OpenGL texture upload failed: texture was not created with CopyDst usage.\n");
-        return;
-    }
-    if (glTexture->state != ResourceState::CopyDst) {
-        std::printf("OpenGL texture upload failed: texture is not in CopyDst state.\n");
-        return;
-    }
-
-    const uint32_t mipWidth = textureMipDimension(glTexture->desc.width, desc.mip_level);
-    const uint32_t mipHeight = textureMipDimension(glTexture->desc.height, desc.mip_level);
-    if (desc.x > mipWidth || desc.y > mipHeight || desc.width > mipWidth - desc.x || desc.height > mipHeight - desc.y) {
-        return;
-    }
-
-    const auto bytesPerPixel = textureFormatBytesPerPixel(desc.format);
-    const auto rowPitch = desc.row_pitch == 0 ? static_cast<size_t>(desc.width) * bytesPerPixel : desc.row_pitch;
-    if (rowPitch % bytesPerPixel != 0) {
-        return;
-    }
-
-    GLint previousAlignment = 4;
-    GLint previousRowLength = 0;
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousAlignment);
-    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &previousRowLength);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bytesPerPixel));
-    if (glTexture->desc.dimension == TextureDimension::TextureCube) {
-        glTextureSubImage3D(glTexture->id,
-                            static_cast<GLint>(desc.mip_level),
-                            static_cast<GLint>(desc.x),
-                            static_cast<GLint>(desc.y),
-                            static_cast<GLint>(desc.array_layer),
-                            static_cast<GLsizei>(desc.width),
-                            static_cast<GLsizei>(desc.height),
-                            1,
-                            toGLTextureUploadFormat(desc.format),
-                            toGLTextureUploadType(desc.format),
-                            desc.data);
-    } else {
-        glTextureSubImage2D(glTexture->id,
-                            static_cast<GLint>(desc.mip_level),
-                            static_cast<GLint>(desc.x),
-                            static_cast<GLint>(desc.y),
-                            static_cast<GLsizei>(desc.width),
-                            static_cast<GLsizei>(desc.height),
-                            toGLTextureUploadFormat(desc.format),
-                            toGLTextureUploadType(desc.format),
-                            desc.data);
-    }
-
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
 }
 
 void OpenGLDevice::destroyTexture(TextureHandle texture)

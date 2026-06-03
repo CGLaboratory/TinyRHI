@@ -100,12 +100,11 @@ public:
     explicit OpenGLDevice(SurfaceResolver surface_resolver = {});
     ~OpenGLDevice() override;
 
-    BufferHandle createBuffer(const BufferDesc& desc, const void* data) override;
+    BufferHandle createBuffer(const BufferDesc& desc) override;
     void updateBuffer(BufferHandle buffer, size_t offset, const void* data, size_t size) override;
     void destroyBuffer(BufferHandle buffer) override;
 
     TextureHandle createTexture(const TextureDesc& desc) override;
-    void updateTexture(TextureHandle texture, const TextureUploadDesc& desc) override;
     void destroyTexture(TextureHandle texture) override;
 
     TextureViewHandle createTextureView(const TextureViewDesc& desc) override;

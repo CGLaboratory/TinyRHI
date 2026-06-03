@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "common/win32_window.h"
 #include "TinyRHI/backend_factory.h"
 
@@ -96,20 +97,22 @@ int main()
         {{0.22f, 0.46f, 0.98f, 1.0f}},
     }};
 
-    BufferHandle positionBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(positions),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        positions.data());
-    BufferHandle colorBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(colors),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        colors.data());
+    BufferHandle positionBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                       commandListHandle,
+                                                                       BufferDesc{
+                                                                           .size = sizeof(positions),
+                                                                           .usage = BufferUsage::Vertex,
+                                                                           .initial_state = ResourceState::VertexBuffer,
+                                                                       },
+                                                                       positions.data());
+    BufferHandle colorBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                    commandListHandle,
+                                                                    BufferDesc{
+                                                                        .size = sizeof(colors),
+                                                                        .usage = BufferUsage::Vertex,
+                                                                        .initial_state = ResourceState::VertexBuffer,
+                                                                    },
+                                                                    colors.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});

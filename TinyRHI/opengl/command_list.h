@@ -28,6 +28,14 @@ public:
     void pushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void* data) override;
     void transition(const BufferTransition* transitions, uint32_t count) override;
     void transition(const TextureTransition* transitions, uint32_t count) override;
+    void copyBufferToBuffer(BufferHandle src,
+                            BufferHandle dst,
+                            const BufferCopyRegion* regions,
+                            uint32_t count) override;
+    void copyBufferToTexture(BufferHandle src,
+                             TextureHandle dst,
+                             const BufferTextureCopyRegion* regions,
+                             uint32_t count) override;
     void generateMipmaps(TextureHandle texture) override;
     void draw(uint32_t vertex_count, uint32_t first_vertex = 0) override;
     void drawIndexed(uint32_t index_count, uint32_t first_index = 0, int32_t vertex_offset = 0) override;

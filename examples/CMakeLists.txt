@@ -10,6 +10,7 @@ add_subdirectory(common/stb)
 function(tinyrhi_add_example target)
     add_executable(${target}
         ${ARGN}
+        ${TINYRHI_EXAMPLES_ROOT}/common/upload_helpers.cpp
         ${TINYRHI_EXAMPLES_ROOT}/common/win32_window.cpp
     )
 

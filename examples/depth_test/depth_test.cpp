@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "common/win32_window.h"
 #include "TinyRHI/backend_factory.h"
 
@@ -108,20 +109,22 @@ int main()
         7,
     }};
 
-    BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(vertices),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        vertices.data());
-    BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(indices),
-            .usage = BufferUsage::Index | BufferUsage::CopyDst,
-            .initial_state = ResourceState::IndexBuffer,
-        },
-        indices.data());
+    BufferHandle vertexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                     commandListHandle,
+                                                                     BufferDesc{
+                                                                         .size = sizeof(vertices),
+                                                                         .usage = BufferUsage::Vertex,
+                                                                         .initial_state = ResourceState::VertexBuffer,
+                                                                     },
+                                                                     vertices.data());
+    BufferHandle indexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                    commandListHandle,
+                                                                    BufferDesc{
+                                                                        .size = sizeof(indices),
+                                                                        .usage = BufferUsage::Index,
+                                                                        .initial_state = ResourceState::IndexBuffer,
+                                                                    },
+                                                                    indices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});

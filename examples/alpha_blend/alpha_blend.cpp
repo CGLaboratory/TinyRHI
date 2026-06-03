@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "common/win32_window.h"
 #include "TinyRHI/backend_factory.h"
 
@@ -99,13 +100,14 @@ int main()
         {{0.76f, 0.66f, 0.0f}, {0.16f, 0.55f, 1.0f, 0.62f}},
     }};
 
-    BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(vertices),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        vertices.data());
+    BufferHandle vertexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                     commandListHandle,
+                                                                     BufferDesc{
+                                                                         .size = sizeof(vertices),
+                                                                         .usage = BufferUsage::Vertex,
+                                                                         .initial_state = ResourceState::VertexBuffer,
+                                                                     },
+                                                                     vertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});

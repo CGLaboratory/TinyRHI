@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "common/win32_window.h"
 #include "TinyRHI/backend_factory.h"
 
@@ -140,20 +141,22 @@ int main(int argc, char** argv)
     const auto textureHeight = static_cast<uint32_t>(imageHeight);
     const uint32_t mipLevels = calculateMipLevels(textureWidth, textureHeight);
 
-    BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(vertices),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        vertices.data());
-    BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(indices),
-            .usage = BufferUsage::Index | BufferUsage::CopyDst,
-            .initial_state = ResourceState::IndexBuffer,
-        },
-        indices.data());
+    BufferHandle vertexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                     commandListHandle,
+                                                                     BufferDesc{
+                                                                         .size = sizeof(vertices),
+                                                                         .usage = BufferUsage::Vertex,
+                                                                         .initial_state = ResourceState::VertexBuffer,
+                                                                     },
+                                                                     vertices.data());
+    BufferHandle indexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                    commandListHandle,
+                                                                    BufferDesc{
+                                                                        .size = sizeof(indices),
+                                                                        .usage = BufferUsage::Index,
+                                                                        .initial_state = ResourceState::IndexBuffer,
+                                                                    },
+                                                                    indices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -205,23 +208,19 @@ int main(int argc, char** argv)
     });
     BindGroupHandle bindGroup = device->createBindGroup(bindGroupDesc);
 
-    TextureUploadDesc uploadDesc{};
-    uploadDesc.width = textureWidth;
-    uploadDesc.height = textureHeight;
-    uploadDesc.mip_level = 0;
-    uploadDesc.format = TextureFormat::RGBA8_SRGB;
-    uploadDesc.data = imagePixels;
-    uploadDesc.row_pitch = textureWidth * 4;
-    device->updateTexture(texture, uploadDesc);
-    commands.begin();
-    commands.generateMipmaps(texture);
-    TextureTransition textureReadyTransition{
-        .texture = texture,
-        .state = ResourceState::ShaderRead,
-    };
-    commands.transition(&textureReadyTransition, 1);
-    commands.end();
-    device->submit(commandListHandle);
+    const size_t textureRowPitch = static_cast<size_t>(textureWidth) * 4;
+    const bool textureUploaded =
+        tinyrhi_examples::uploadTextureData(*device,
+                                            commandListHandle,
+                                            texture,
+                                            tinyrhi_examples::TextureUploadData{
+                                                .data = imagePixels,
+                                                .size = textureRowPitch * textureHeight,
+                                                .row_pitch = textureRowPitch,
+                                                .width = textureWidth,
+                                                .height = textureHeight,
+                                            }) &&
+        tinyrhi_examples::transitionTextureToShaderRead(*device, commandListHandle, texture, true);
     stbi_image_free(imagePixels);
 
     PipelineDesc pipelineDesc{};
@@ -255,8 +254,8 @@ int main(int argc, char** argv)
     pipelineDesc.depth_state.enabled = false;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (!vertexBuffer || !indexBuffer || !vertexShader || !fragmentShader || !texture || !textureView || !sampler ||
-        !bindGroupLayout || !layout || !bindGroup || !pipeline) {
+    if (!vertexBuffer || !indexBuffer || !vertexShader || !fragmentShader || !texture || !textureUploaded ||
+        !textureView || !sampler || !bindGroupLayout || !layout || !bindGroup || !pipeline) {
         std::printf("Failed to create textured quad resources.\n");
         instance->shutdown();
         return 1;

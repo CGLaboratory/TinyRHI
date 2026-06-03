@@ -1,6 +1,8 @@
 #include "device.h"
 #include "gl_convert.h"
 
+#include <cstdio>
+
 namespace lunalite::rhi {
 namespace {
 bool hasUsage(BufferUsage usage, BufferUsage required)
@@ -40,7 +42,7 @@ bool bufferInitialStateCompatible(BufferUsage usage, ResourceState state)
 }
 } // namespace
 
-BufferHandle OpenGLDevice::createBuffer(const BufferDesc& desc, const void* data)
+BufferHandle OpenGLDevice::createBuffer(const BufferDesc& desc)
 {
     if (!bufferInitialStateCompatible(desc.usage, desc.initial_state)) {
         return {};
@@ -48,7 +50,7 @@ BufferHandle OpenGLDevice::createBuffer(const BufferDesc& desc, const void* data
 
     GLuint buffer = 0;
     glCreateBuffers(1, &buffer);
-    glNamedBufferData(buffer, static_cast<GLsizeiptr>(desc.size), data, toGLBufferUsage(desc.memory));
+    glNamedBufferData(buffer, static_cast<GLsizeiptr>(desc.size), nullptr, toGLBufferUsage(desc.memory));
 
     m_buffers.push_back(OpenGLBuffer{
         .id = buffer,
@@ -64,6 +66,10 @@ void OpenGLDevice::updateBuffer(BufferHandle buffer, size_t offset, const void* 
 {
     auto* glBuffer = getBuffer(buffer);
     if (glBuffer == nullptr || data == nullptr || offset > glBuffer->size || size > glBuffer->size - offset) {
+        return;
+    }
+    if (glBuffer->memory != MemoryUsage::CpuToGpu) {
+        std::printf("OpenGL buffer update failed: buffer is not CPU writable.\n");
         return;
     }
 

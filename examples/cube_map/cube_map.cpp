@@ -1,3 +1,4 @@
+#include "common/upload_helpers.h"
 #include "common/win32_window.h"
 #include "stb_image.h"
 #include "TinyRHI/backend_factory.h"
@@ -336,28 +337,26 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    bool environmentUploaded = true;
     for (uint32_t face = 0; face < 6; ++face) {
         const std::vector<float> facePixels = makeCubemapFace(hdrPixels, hdrWidth, hdrHeight, face, cubeSize);
-        TextureUploadDesc upload{};
-        upload.width = cubeSize;
-        upload.height = cubeSize;
-        upload.mip_level = 0;
-        upload.array_layer = face;
-        upload.format = TextureFormat::RGBA32F;
-        upload.data = facePixels.data();
-        upload.row_pitch = static_cast<size_t>(cubeSize) * 4 * sizeof(float);
-        device->updateTexture(environment, upload);
+        const size_t rowPitch = static_cast<size_t>(cubeSize) * 4 * sizeof(float);
+        environmentUploaded =
+            environmentUploaded && tinyrhi_examples::uploadTextureData(*device,
+                                                                       commandListHandle,
+                                                                       environment,
+                                                                       tinyrhi_examples::TextureUploadData{
+                                                                           .data = facePixels.data(),
+                                                                           .size = rowPitch * cubeSize,
+                                                                           .row_pitch = rowPitch,
+                                                                           .width = cubeSize,
+                                                                           .height = cubeSize,
+                                                                           .array_layer = face,
+                                                                       });
     }
     stbi_image_free(hdrPixels);
-    commands.begin();
-    commands.generateMipmaps(environment);
-    TextureTransition environmentReadyTransition{
-        .texture = environment,
-        .state = ResourceState::ShaderRead,
-    };
-    commands.transition(&environmentReadyTransition, 1);
-    commands.end();
-    device->submit(commandListHandle);
+    environmentUploaded = environmentUploaded && tinyrhi_examples::transitionTextureToShaderRead(
+                                                     *device, commandListHandle, environment, true);
 
     TextureViewHandle environmentView = device->createTextureView(TextureViewDesc{
         .texture = environment,
@@ -376,13 +375,14 @@ int main(int argc, char** argv)
         .address_w = AddressMode::ClampToEdge,
     });
 
-    BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{
-            .size = sizeof(kCubeVertices),
-            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
-            .initial_state = ResourceState::VertexBuffer,
-        },
-        kCubeVertices.data());
+    BufferHandle vertexBuffer = tinyrhi_examples::createStaticBuffer(*device,
+                                                                     commandListHandle,
+                                                                     BufferDesc{
+                                                                         .size = sizeof(kCubeVertices),
+                                                                         .usage = BufferUsage::Vertex,
+                                                                         .initial_state = ResourceState::VertexBuffer,
+                                                                     },
+                                                                     kCubeVertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -438,8 +438,8 @@ int main(int argc, char** argv)
     pipelineDesc.raster_state.cull_mode = CullMode::None;
 
     PipelineHandle pipeline = device->createPipeline(pipelineDesc);
-    if (!environmentView || !environmentSampler || !vertexBuffer || !vertexShader || !fragmentShader ||
-        !bindGroupLayout || !layout || !bindGroup || !pipeline) {
+    if (!environmentUploaded || !environmentView || !environmentSampler || !vertexBuffer || !vertexShader ||
+        !fragmentShader || !bindGroupLayout || !layout || !bindGroup || !pipeline) {
         std::printf("Failed to create cubemap example resources.\n");
         instance->shutdown();
         return 1;

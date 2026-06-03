@@ -21,6 +21,23 @@ struct TextureTransition {
     ResourceState state{ResourceState::Undefined};
 };
 
+struct BufferCopyRegion {
+    size_t src_offset{0};
+    size_t dst_offset{0};
+    size_t size{0};
+};
+
+struct BufferTextureCopyRegion {
+    size_t buffer_offset{0};
+    size_t buffer_row_pitch{0};
+    uint32_t texture_x{0};
+    uint32_t texture_y{0};
+    uint32_t texture_width{0};
+    uint32_t texture_height{0};
+    uint32_t mip_level{0};
+    uint32_t array_layer{0};
+};
+
 struct Viewport {
     float x{0.0f};
     float y{0.0f};
@@ -63,6 +80,14 @@ public:
 
     virtual void transition(const BufferTransition* transitions, uint32_t count) = 0;
     virtual void transition(const TextureTransition* transitions, uint32_t count) = 0;
+    virtual void copyBufferToBuffer(BufferHandle src,
+                                    BufferHandle dst,
+                                    const BufferCopyRegion* regions,
+                                    uint32_t count) = 0;
+    virtual void copyBufferToTexture(BufferHandle src,
+                                     TextureHandle dst,
+                                     const BufferTextureCopyRegion* regions,
+                                     uint32_t count) = 0;
     virtual void generateMipmaps(TextureHandle texture) = 0;
 
     virtual void draw(uint32_t vertex_count, uint32_t first_vertex = 0) = 0;
