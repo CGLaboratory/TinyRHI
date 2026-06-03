@@ -106,7 +106,6 @@ public:
 
     TextureHandle createTexture(const TextureDesc& desc) override;
     void updateTexture(TextureHandle texture, const TextureUploadDesc& desc) override;
-    void generateMipmaps(TextureHandle texture) override;
     void destroyTexture(TextureHandle texture) override;
 
     TextureViewHandle createTextureView(const TextureViewDesc& desc) override;

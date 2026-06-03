@@ -297,6 +297,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    const CommandListHandle commandListHandle = device->createCommandList();
+    auto* commandList = device->getCommandList(commandListHandle);
+    if (commandList == nullptr) {
+        std::printf("Failed to create command list.\n");
+        instance->shutdown();
+        return 1;
+    }
+    auto& commands = *commandList;
+
     const std::string assetPath = findAssetPath(argc, argv);
     int hdrWidth = 0;
     int hdrHeight = 0;
@@ -314,9 +323,10 @@ int main(int argc, char** argv)
         .height = cubeSize,
         .dimension = TextureDimension::TextureCube,
         .format = TextureFormat::RGBA32F,
-        .usage = TextureUsage::Sampled | TextureUsage::CopyDst,
+        .usage = TextureUsage::Sampled | TextureUsage::CopySrc | TextureUsage::CopyDst,
         .mip_levels = mipLevels,
         .array_layers = 6,
+        .initial_state = ResourceState::CopyDst,
     });
 
     if (!environment) {
@@ -339,7 +349,15 @@ int main(int argc, char** argv)
         device->updateTexture(environment, upload);
     }
     stbi_image_free(hdrPixels);
-    device->generateMipmaps(environment);
+    commands.begin();
+    commands.generateMipmaps(environment);
+    TextureTransition environmentReadyTransition{
+        .texture = environment,
+        .state = ResourceState::ShaderRead,
+    };
+    commands.transition(&environmentReadyTransition, 1);
+    commands.end();
+    device->submit(commandListHandle);
 
     TextureViewHandle environmentView = device->createTextureView(TextureViewDesc{
         .texture = environment,
@@ -359,7 +377,11 @@ int main(int argc, char** argv)
     });
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(kCubeVertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
+        BufferDesc{
+            .size = sizeof(kCubeVertices),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
         kCubeVertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
@@ -423,14 +445,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    const CommandListHandle commandListHandle = device->createCommandList();
-    auto* commandList = device->getCommandList(commandListHandle);
-    if (commandList == nullptr) {
-        std::printf("Failed to create command list.\n");
-        instance->shutdown();
-        return 1;
-    }
-    auto& commands = *commandList;
     const auto start = std::chrono::steady_clock::now();
 
     while (surface.pollEvents() && !surface.shouldClose()) {

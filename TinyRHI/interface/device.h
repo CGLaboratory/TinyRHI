@@ -21,7 +21,6 @@ public:
 
     virtual TextureHandle createTexture(const TextureDesc& desc) = 0;
     virtual void updateTexture(TextureHandle texture, const TextureUploadDesc& desc) = 0;
-    virtual void generateMipmaps(TextureHandle texture) = 0;
     virtual void destroyTexture(TextureHandle texture) = 0;
 
     virtual TextureViewHandle createTextureView(const TextureViewDesc& desc) = 0;

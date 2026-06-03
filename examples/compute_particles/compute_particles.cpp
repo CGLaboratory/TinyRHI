@@ -134,6 +134,7 @@ int main()
             .size = sizeof(Particle) * kParticleCount,
             .usage = BufferUsage::Vertex | BufferUsage::Storage,
             .memory = MemoryUsage::GpuOnly,
+            .initial_state = ResourceState::VertexBuffer,
         },
         nullptr);
 

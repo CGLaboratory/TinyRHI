@@ -109,9 +109,19 @@ int main()
     }};
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, vertices.data());
+        BufferDesc{
+            .size = sizeof(vertices),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
+        vertices.data());
     BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(indices), .usage = BufferUsage::Index | BufferUsage::CopyDst}, indices.data());
+        BufferDesc{
+            .size = sizeof(indices),
+            .usage = BufferUsage::Index | BufferUsage::CopyDst,
+            .initial_state = ResourceState::IndexBuffer,
+        },
+        indices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});

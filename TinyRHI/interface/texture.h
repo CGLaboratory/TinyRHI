@@ -1,4 +1,5 @@
 #pragma once
+#include "resource_state.h"
 #include "rhi_types.h"
 
 #include <cstddef>
@@ -79,6 +80,7 @@ struct TextureDesc {
     TextureUsage usage{TextureUsage::Sampled};
     uint32_t mip_levels{1};
     uint32_t array_layers{1};
+    ResourceState initial_state{ResourceState::Undefined};
 };
 
 struct TextureViewDesc {

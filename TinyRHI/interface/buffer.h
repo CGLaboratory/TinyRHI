@@ -1,4 +1,5 @@
 #pragma once
+#include "resource_state.h"
 #include "rhi_types.h"
 
 #include <cstddef>
@@ -48,6 +49,7 @@ struct BufferDesc {
     size_t size{0};
     BufferUsage usage{BufferUsage::None};
     MemoryUsage memory{MemoryUsage::GpuOnly};
+    ResourceState initial_state{ResourceState::Undefined};
 };
 
 } // namespace lunalite::rhi

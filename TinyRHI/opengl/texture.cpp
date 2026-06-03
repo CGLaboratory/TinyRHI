@@ -2,6 +2,7 @@
 #include "gl_convert.h"
 
 #include <cstddef>
+#include <cstdio>
 
 namespace lunalite::rhi {
 namespace {
@@ -37,12 +38,50 @@ uint32_t textureMipDimension(uint32_t baseDimension, uint32_t mipLevel)
 
     return dimension == 0 ? 1 : dimension;
 }
+
+bool hasUsage(TextureUsage usage, TextureUsage required)
+{
+    return (usage & required) == required;
+}
+
+bool textureInitialStateCompatible(const TextureDesc& desc, ResourceState state, bool swapchainBackbuffer)
+{
+    switch (state) {
+        case ResourceState::Undefined:
+            return true;
+        case ResourceState::CopySrc:
+            return hasUsage(desc.usage, TextureUsage::CopySrc);
+        case ResourceState::CopyDst:
+            return hasUsage(desc.usage, TextureUsage::CopyDst);
+        case ResourceState::ShaderRead:
+            return hasUsage(desc.usage, TextureUsage::Sampled);
+        case ResourceState::StorageRead:
+        case ResourceState::StorageReadWrite:
+            return hasUsage(desc.usage, TextureUsage::Storage) && !isDepthFormat(desc.format) &&
+                   !isSRGBFormat(desc.format);
+        case ResourceState::ColorAttachment:
+            return hasUsage(desc.usage, TextureUsage::RenderTarget) && !isDepthFormat(desc.format);
+        case ResourceState::DepthStencilRead:
+        case ResourceState::DepthStencilWrite:
+            return hasUsage(desc.usage, TextureUsage::DepthStencil) && isDepthFormat(desc.format);
+        case ResourceState::Present:
+            return swapchainBackbuffer;
+        case ResourceState::VertexBuffer:
+        case ResourceState::IndexBuffer:
+        case ResourceState::IndirectArgument:
+        case ResourceState::UniformRead:
+            return false;
+    }
+
+    return false;
+}
 } // namespace
 
 TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
 {
     const TextureDesc normalizedDesc = normalizeTextureDesc(desc);
-    if (!textureDescValid(normalizedDesc)) {
+    if (!textureDescValid(normalizedDesc) ||
+        !textureInitialStateCompatible(normalizedDesc, normalizedDesc.initial_state, false)) {
         return {};
     }
 
@@ -60,7 +99,12 @@ TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
     glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    m_textures.push_back(OpenGLTexture{.id = texture, .desc = normalizedDesc, .is_swapchain_backbuffer = false});
+    m_textures.push_back(OpenGLTexture{
+        .id = texture,
+        .desc = normalizedDesc,
+        .state = normalizedDesc.initial_state,
+        .is_swapchain_backbuffer = false,
+    });
     return makeHandle<TextureHandle>(m_textures.size() - 1);
 }
 
@@ -70,6 +114,14 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
     if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || desc.data == nullptr || desc.width == 0 ||
         desc.height == 0 || desc.mip_level >= glTexture->desc.mip_levels ||
         desc.array_layer >= glTexture->desc.array_layers) {
+        return;
+    }
+    if (!hasUsage(glTexture->desc.usage, TextureUsage::CopyDst)) {
+        std::printf("OpenGL texture upload failed: texture was not created with CopyDst usage.\n");
+        return;
+    }
+    if (glTexture->state != ResourceState::CopyDst) {
+        std::printf("OpenGL texture upload failed: texture is not in CopyDst state.\n");
         return;
     }
 
@@ -118,16 +170,6 @@ void OpenGLDevice::updateTexture(TextureHandle texture, const TextureUploadDesc&
 
     glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
     glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
-}
-
-void OpenGLDevice::generateMipmaps(TextureHandle texture)
-{
-    auto* glTexture = getTexture(texture);
-    if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || isDepthFormat(glTexture->desc.format)) {
-        return;
-    }
-
-    glGenerateTextureMipmap(glTexture->id);
 }
 
 void OpenGLDevice::destroyTexture(TextureHandle texture)

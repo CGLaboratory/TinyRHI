@@ -102,10 +102,16 @@ int main()
     *rightColor = UniformData{{0.18f, 0.45f, 0.95f, 1.0f}};
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, vertices.data());
+        BufferDesc{
+            .size = sizeof(vertices),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
+        vertices.data());
     BufferHandle uniformBuffer = device->createBuffer(BufferDesc{.size = uniformData.size(),
                                                                  .usage = BufferUsage::Uniform | BufferUsage::CopyDst,
-                                                                 .memory = MemoryUsage::CpuToGpu},
+                                                                 .memory = MemoryUsage::CpuToGpu,
+                                                                 .initial_state = ResourceState::UniformRead},
                                                       uniformData.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =

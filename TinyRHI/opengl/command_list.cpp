@@ -189,6 +189,21 @@ bool textureStateCompatible(const OpenGLTexture& texture, ResourceState state)
     return false;
 }
 
+bool bufferStateUsable(const OpenGLBuffer& buffer, ResourceState required)
+{
+    return buffer.state == required;
+}
+
+bool bufferStorageStateUsable(const OpenGLBuffer& buffer)
+{
+    return buffer.state == ResourceState::StorageRead || buffer.state == ResourceState::StorageReadWrite;
+}
+
+bool textureStateUsable(const OpenGLTexture& texture, ResourceState required)
+{
+    return texture.state == required;
+}
+
 bool bufferWriteState(ResourceState state)
 {
     return state == ResourceState::StorageReadWrite || state == ResourceState::CopyDst;
@@ -523,6 +538,10 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 if (glBuffer == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Uniform)) {
                     break;
                 }
+                if (!bufferStateUsable(*glBuffer, ResourceState::UniformRead)) {
+                    std::printf("OpenGL bind group binding failed: uniform buffer is not in UniformRead state.\n");
+                    break;
+                }
 
                 const size_t offset = entry.buffer.offset + dynamicOffset;
                 if (offset > glBuffer->size || (entry.buffer.size > 0 && entry.buffer.size > glBuffer->size - offset)) {
@@ -549,6 +568,12 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
             case BindingType::StorageBuffer: {
                 auto* glBuffer = m_device.getBuffer(entry.buffer.buffer);
                 if (glBuffer == nullptr || !hasUsage(glBuffer->usage, BufferUsage::Storage)) {
+                    break;
+                }
+                if (!bufferStorageStateUsable(*glBuffer)) {
+                    std::printf(
+                        "OpenGL bind group binding failed: storage buffer is not in StorageRead or StorageReadWrite "
+                        "state.\n");
                     break;
                 }
 
@@ -578,6 +603,10 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 auto* glView = m_device.getTextureView(entry.texture_view);
                 auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
                 if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer) {
+                    if (!textureStateUsable(*glTexture, ResourceState::ShaderRead)) {
+                        std::printf("OpenGL bind group binding failed: sampled texture is not in ShaderRead state.\n");
+                        break;
+                    }
                     glBindTextureUnit(binding, glTexture->id);
                 }
                 break;
@@ -588,6 +617,11 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer &&
                     hasUsage(glTexture->desc.usage, TextureUsage::Storage) && !isDepthFormat(glView->format) &&
                     !isSRGBFormat(glView->format)) {
+                    if (!textureStateUsable(*glTexture, ResourceState::StorageReadWrite)) {
+                        std::printf(
+                            "OpenGL bind group binding failed: storage texture is not in StorageReadWrite state.\n");
+                        break;
+                    }
                     const GLboolean layered = glView->array_layer_count > 1 ? GL_TRUE : GL_FALSE;
                     const GLint layer = layered == GL_TRUE ? 0 : static_cast<GLint>(glView->base_array_layer);
                     glBindImageTexture(binding,
@@ -612,6 +646,11 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
                 auto* glSampler = m_device.getSampler(entry.sampler);
                 if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer) {
+                    if (!textureStateUsable(*glTexture, ResourceState::ShaderRead)) {
+                        std::printf(
+                            "OpenGL bind group binding failed: combined image texture is not in ShaderRead state.\n");
+                        break;
+                    }
                     glBindTextureUnit(binding, glTexture->id);
                 }
                 if (glSampler != nullptr) {
@@ -632,6 +671,10 @@ void OpenGLCommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer, size
         !hasUsage(glBuffer->usage, BufferUsage::Vertex)) {
         return;
     }
+    if (!bufferStateUsable(*glBuffer, ResourceState::VertexBuffer)) {
+        std::printf("OpenGL vertex buffer binding failed: buffer is not in VertexBuffer state.\n");
+        return;
+    }
 
     for (const auto& bufferLayout : glPipeline->vertex_input.buffers) {
         if (bufferLayout.binding == slot) {
@@ -649,6 +692,10 @@ void OpenGLCommandList::setIndexBuffer(BufferHandle buffer, IndexFormat format, 
 
     if (glBuffer == nullptr || glPipeline == nullptr || glPipeline->type != OpenGLPipelineType::Graphics ||
         !hasUsage(glBuffer->usage, BufferUsage::Index)) {
+        return;
+    }
+    if (!bufferStateUsable(*glBuffer, ResourceState::IndexBuffer)) {
+        std::printf("OpenGL index buffer binding failed: buffer is not in IndexBuffer state.\n");
         return;
     }
 
@@ -763,6 +810,28 @@ void OpenGLCommandList::transition(const TextureTransition* transitions, uint32_
     if (bits != 0) {
         glMemoryBarrier(bits);
     }
+}
+
+void OpenGLCommandList::generateMipmaps(TextureHandle texture)
+{
+    auto* glTexture = m_device.getTexture(texture);
+    if (glTexture == nullptr || glTexture->is_swapchain_backbuffer || isDepthFormat(glTexture->desc.format) ||
+        glTexture->desc.mip_levels <= 1) {
+        return;
+    }
+
+    if (!hasUsage(glTexture->desc.usage, TextureUsage::CopySrc | TextureUsage::CopyDst)) {
+        std::printf("OpenGL mipmap generation failed: texture was not created with CopySrc and CopyDst usage.\n");
+        return;
+    }
+
+    if (glTexture->state != ResourceState::CopyDst) {
+        std::printf("OpenGL mipmap generation failed: texture is not in CopyDst state.\n");
+        return;
+    }
+
+    glGenerateTextureMipmap(glTexture->id);
+    glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 void OpenGLCommandList::draw(uint32_t vertex_count, uint32_t first_vertex)

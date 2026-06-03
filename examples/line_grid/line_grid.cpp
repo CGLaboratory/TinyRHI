@@ -105,7 +105,11 @@ int main()
     }
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = vertices.size() * sizeof(Vertex), .usage = BufferUsage::Vertex | BufferUsage::CopyDst},
+        BufferDesc{
+            .size = vertices.size() * sizeof(Vertex),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
         vertices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =

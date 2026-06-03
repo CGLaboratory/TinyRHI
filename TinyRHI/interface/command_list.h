@@ -3,29 +3,13 @@
 #include "buffer.h"
 #include "pipeline.h"
 #include "render_pass.h"
+#include "resource_state.h"
 #include "rhi_types.h"
 #include "texture.h"
 
 #include <cstddef>
 
 namespace lunalite::rhi {
-
-enum class ResourceState {
-    Undefined,
-    CopySrc,
-    CopyDst,
-    VertexBuffer,
-    IndexBuffer,
-    IndirectArgument,
-    UniformRead,
-    ShaderRead,
-    StorageRead,
-    StorageReadWrite,
-    ColorAttachment,
-    DepthStencilRead,
-    DepthStencilWrite,
-    Present
-};
 
 struct BufferTransition {
     BufferHandle buffer{};
@@ -79,6 +63,7 @@ public:
 
     virtual void transition(const BufferTransition* transitions, uint32_t count) = 0;
     virtual void transition(const TextureTransition* transitions, uint32_t count) = 0;
+    virtual void generateMipmaps(TextureHandle texture) = 0;
 
     virtual void draw(uint32_t vertex_count, uint32_t first_vertex = 0) = 0;
     virtual void drawIndexed(uint32_t index_count, uint32_t first_index = 0, int32_t vertex_offset = 0) = 0;

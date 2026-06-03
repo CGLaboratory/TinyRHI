@@ -563,6 +563,7 @@ bool TinyRHIImGuiRenderer::createFontTexture()
         .height = static_cast<uint32_t>(height),
         .format = TextureFormat::RGBA8_UNorm,
         .usage = TextureUsage::Sampled | TextureUsage::CopyDst,
+        .initial_state = ResourceState::CopyDst,
     });
     m_font_texture_view = m_device->createTextureView(TextureViewDesc{
         .texture = m_font_texture,
@@ -591,6 +592,18 @@ bool TinyRHIImGuiRenderer::createFontTexture()
     upload.data = pixels;
     upload.row_pitch = static_cast<size_t>(width) * static_cast<size_t>(bytesPerPixel);
     m_device->updateTexture(m_font_texture, upload);
+    auto* commandList = m_device->getCommandList(m_command_list);
+    if (commandList == nullptr) {
+        return false;
+    }
+    TextureTransition fontTextureReadyTransition{
+        .texture = m_font_texture,
+        .state = ResourceState::ShaderRead,
+    };
+    commandList->begin();
+    commandList->transition(&fontTextureReadyTransition, 1);
+    commandList->end();
+    m_device->submit(m_command_list);
 
     ImGui::GetIO().Fonts->SetTexID(textureIdFromBindGroup(m_font_bind_group));
     return true;
@@ -611,6 +624,7 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
                 .size = m_vertex_buffer_size,
                 .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
                 .memory = MemoryUsage::CpuToGpu,
+                .initial_state = ResourceState::VertexBuffer,
             },
             nullptr);
     }
@@ -625,6 +639,7 @@ bool TinyRHIImGuiRenderer::ensureBuffers(int vertex_count, int index_count)
                 .size = m_index_buffer_size,
                 .usage = BufferUsage::Index | BufferUsage::CopyDst,
                 .memory = MemoryUsage::CpuToGpu,
+                .initial_state = ResourceState::IndexBuffer,
             },
             nullptr);
     }

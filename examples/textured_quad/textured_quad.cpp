@@ -141,9 +141,19 @@ int main(int argc, char** argv)
     const uint32_t mipLevels = calculateMipLevels(textureWidth, textureHeight);
 
     BufferHandle vertexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(vertices), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, vertices.data());
+        BufferDesc{
+            .size = sizeof(vertices),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
+        vertices.data());
     BufferHandle indexBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(indices), .usage = BufferUsage::Index | BufferUsage::CopyDst}, indices.data());
+        BufferDesc{
+            .size = sizeof(indices),
+            .usage = BufferUsage::Index | BufferUsage::CopyDst,
+            .initial_state = ResourceState::IndexBuffer,
+        },
+        indices.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
@@ -152,8 +162,9 @@ int main(int argc, char** argv)
         .width = textureWidth,
         .height = textureHeight,
         .format = TextureFormat::RGBA8_SRGB,
-        .usage = TextureUsage::Sampled | TextureUsage::CopyDst,
+        .usage = TextureUsage::Sampled | TextureUsage::CopySrc | TextureUsage::CopyDst,
         .mip_levels = mipLevels,
+        .initial_state = ResourceState::CopyDst,
     });
     TextureViewHandle textureView = device->createTextureView(TextureViewDesc{
         .texture = texture,
@@ -202,7 +213,15 @@ int main(int argc, char** argv)
     uploadDesc.data = imagePixels;
     uploadDesc.row_pitch = textureWidth * 4;
     device->updateTexture(texture, uploadDesc);
-    device->generateMipmaps(texture);
+    commands.begin();
+    commands.generateMipmaps(texture);
+    TextureTransition textureReadyTransition{
+        .texture = texture,
+        .state = ResourceState::ShaderRead,
+    };
+    commands.transition(&textureReadyTransition, 1);
+    commands.end();
+    device->submit(commandListHandle);
     stbi_image_free(imagePixels);
 
     PipelineDesc pipelineDesc{};

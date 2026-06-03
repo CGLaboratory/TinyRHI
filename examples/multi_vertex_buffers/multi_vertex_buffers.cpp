@@ -97,9 +97,19 @@ int main()
     }};
 
     BufferHandle positionBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(positions), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, positions.data());
+        BufferDesc{
+            .size = sizeof(positions),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
+        positions.data());
     BufferHandle colorBuffer = device->createBuffer(
-        BufferDesc{.size = sizeof(colors), .usage = BufferUsage::Vertex | BufferUsage::CopyDst}, colors.data());
+        BufferDesc{
+            .size = sizeof(colors),
+            .usage = BufferUsage::Vertex | BufferUsage::CopyDst,
+            .initial_state = ResourceState::VertexBuffer,
+        },
+        colors.data());
     ShaderHandle vertexShader = device->createShader(ShaderDesc{.stage = ShaderStage::Vertex, .source = kVertexShader});
     ShaderHandle fragmentShader =
         device->createShader(ShaderDesc{.stage = ShaderStage::Fragment, .source = kFragmentShader});
