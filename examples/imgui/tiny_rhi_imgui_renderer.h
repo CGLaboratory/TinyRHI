@@ -3,9 +3,9 @@
 #include "TinyRHI/interface/device.h"
 #include "TinyRHI/interface/instance.h"
 
-#include <imgui.h>
-
 #include <cstddef>
+
+#include <imgui.h>
 #include <vector>
 
 namespace tinyrhi_examples {
@@ -47,6 +47,7 @@ private:
 
     lunalite::rhi::Device* m_device{nullptr};
     lunalite::rhi::Instance* m_instance{nullptr};
+    lunalite::rhi::CommandListHandle m_command_list{};
     lunalite::rhi::BufferHandle m_vertex_buffer{};
     lunalite::rhi::BufferHandle m_index_buffer{};
     size_t m_vertex_buffer_size{0};

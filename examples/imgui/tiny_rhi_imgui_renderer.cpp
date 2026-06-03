@@ -93,6 +93,13 @@ bool TinyRHIImGuiRenderer::init(Device& device)
     }
 
     m_device = &device;
+    m_command_list = m_device->createCommandList();
+    if (!m_command_list || m_device->getCommandList(m_command_list) == nullptr) {
+        m_device = nullptr;
+        m_command_list = {};
+        return false;
+    }
+
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "TinyRHI";
     io.BackendRendererUserData = this;
@@ -154,6 +161,10 @@ void TinyRHIImGuiRenderer::shutdown()
     if (m_vertex_shader) {
         m_device->destroyShader(m_vertex_shader);
         m_vertex_shader = {};
+    }
+    if (m_command_list) {
+        m_device->destroyCommandList(m_command_list);
+        m_command_list = {};
     }
 
     m_device = nullptr;
@@ -369,8 +380,8 @@ void TinyRHIImGuiRenderer::setViewportWindowSize(ImGuiViewport* viewport, ImVec2
 void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
 {
     auto* data = viewportRenderData(viewport);
-    if (m_device == nullptr || data == nullptr || data->swapchain == nullptr || viewport == nullptr ||
-        viewport->DrawData == nullptr) {
+    if (m_device == nullptr || !m_command_list || data == nullptr || data->swapchain == nullptr ||
+        viewport == nullptr || viewport->DrawData == nullptr) {
         return;
     }
     data->frame_pending = false;
@@ -399,13 +410,17 @@ void TinyRHIImGuiRenderer::renderViewportWindow(ImGuiViewport* viewport)
     pass.width = frame.width;
     pass.height = frame.height;
 
-    auto& commands = m_device->getCommandList();
+    auto* commandList = m_device->getCommandList(m_command_list);
+    if (commandList == nullptr) {
+        return;
+    }
+    auto& commands = *commandList;
     commands.begin();
     commands.beginRenderPass(pass);
     render(viewport->DrawData, commands);
     commands.endRenderPass();
     commands.end();
-    m_device->submit(&frame);
+    m_device->submit(m_command_list, &frame);
     data->frame = frame;
     data->frame_pending = true;
 }

@@ -167,7 +167,14 @@ int main()
         return 1;
     }
 
-    auto& commands = device->getCommandList();
+    const CommandListHandle commandListHandle = device->createCommandList();
+    auto* commandList = device->getCommandList(commandListHandle);
+    if (commandList == nullptr) {
+        std::printf("Failed to create command list.\n");
+        instance->shutdown();
+        return 1;
+    }
+    auto& commands = *commandList;
 
     TextureHandle brdfLut = device->createTexture(TextureDesc{
         .width = kLutSize,
@@ -280,7 +287,7 @@ int main()
     };
     commands.resourceBarrier(&brdfLutBarrier, 1);
     commands.end();
-    device->submit();
+    device->submit(commandListHandle);
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         swapchain->resize(surface.getWidth(), surface.getHeight());
@@ -307,7 +314,7 @@ int main()
         commands.endRenderPass();
         commands.end();
 
-        device->submit(&frame);
+        device->submit(commandListHandle, &frame);
         device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }

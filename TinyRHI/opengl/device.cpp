@@ -176,8 +176,7 @@ bool attachFramebufferTextureView(GLuint framebuffer,
 } // namespace
 
 OpenGLDevice::OpenGLDevice(SurfaceResolver surface_resolver)
-    : m_surface_resolver(std::move(surface_resolver)),
-      m_command_list(std::make_unique<OpenGLCommandList>(*this))
+    : m_surface_resolver(std::move(surface_resolver))
 {}
 
 OpenGLDevice::~OpenGLDevice()
@@ -186,7 +185,7 @@ OpenGLDevice::~OpenGLDevice()
         makeAnySwapchainCurrent();
     }
 
-    m_command_list.reset();
+    m_command_lists.clear();
 
     for (auto& pipeline : m_pipelines) {
         if (pipeline.vao != 0) {
@@ -221,11 +220,6 @@ OpenGLDevice::~OpenGLDevice()
     m_swapchains.clear();
 }
 
-CommandList& OpenGLDevice::getCommandList()
-{
-    return *m_command_list;
-}
-
 bool OpenGLDevice::beginFrame(SwapchainHandle swapchain, SwapchainFrame& frame)
 {
     auto* glSwapchain = getOpenGLSwapchain(swapchain);
@@ -248,12 +242,6 @@ bool OpenGLDevice::beginFrame(SwapchainHandle swapchain, SwapchainFrame& frame)
     return true;
 }
 
-void OpenGLDevice::submit(const SwapchainFrame* frame)
-{
-    (void) frame;
-    glFlush();
-}
-
 void OpenGLDevice::present(const SwapchainFrame& frame)
 {
     auto* glSwapchain = getOpenGLSwapchain(frame.swapchain);
@@ -265,6 +253,53 @@ void OpenGLDevice::present(const SwapchainFrame& frame)
     if (m_active_frame_swapchain == frame.swapchain) {
         m_active_frame_swapchain = {};
     }
+}
+
+CommandListHandle OpenGLDevice::createCommandList()
+{
+    CommandListHandle handle;
+    for (size_t i = 0; i < m_command_lists.size(); ++i) {
+        if (m_command_lists[i] == nullptr) {
+            handle = makeHandle<CommandListHandle>(i);
+            break;
+        }
+    }
+
+    if (!handle) {
+        handle = makeHandle<CommandListHandle>(m_command_lists.size());
+        m_command_lists.push_back(nullptr);
+    }
+
+    m_command_lists[handleIndex(handle)] = std::make_unique<OpenGLCommandList>(*this);
+    return handle;
+}
+
+void OpenGLDevice::destroyCommandList(CommandListHandle command_list)
+{
+    if (!command_list || command_list.value > m_command_lists.size()) {
+        return;
+    }
+
+    m_command_lists[handleIndex(command_list)].reset();
+}
+
+CommandList* OpenGLDevice::getCommandList(CommandListHandle command_list)
+{
+    if (!command_list || command_list.value > m_command_lists.size()) {
+        return nullptr;
+    }
+
+    return m_command_lists[handleIndex(command_list)].get();
+}
+
+void OpenGLDevice::submit(CommandListHandle command_list, const SwapchainFrame* frame)
+{
+    if (getCommandList(command_list) == nullptr) {
+        return;
+    }
+
+    (void) frame;
+    glFlush();
 }
 
 Surface* OpenGLDevice::getSurface(SurfaceHandle handle)

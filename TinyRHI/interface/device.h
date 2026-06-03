@@ -52,9 +52,11 @@ public:
     virtual Swapchain* getSwapchain(SwapchainHandle swapchain) = 0;
 
     virtual bool beginFrame(SwapchainHandle swapchain, SwapchainFrame& frame) = 0;
-    virtual void submit(const SwapchainFrame* frame = nullptr) = 0;
     virtual void present(const SwapchainFrame& frame) = 0;
 
-    virtual CommandList& getCommandList() = 0;
+    virtual CommandListHandle createCommandList() = 0;
+    virtual void destroyCommandList(CommandListHandle command_list) = 0;
+    virtual CommandList* getCommandList(CommandListHandle command_list) = 0;
+    virtual void submit(CommandListHandle command_list, const SwapchainFrame* frame = nullptr) = 0;
 };
 } // namespace lunalite::rhi

@@ -79,7 +79,17 @@ int main()
         return 1;
     }
 
-    auto& commands = device->getCommandList();
+    const CommandListHandle commandListHandle = device->createCommandList();
+    auto* commandList = device->getCommandList(commandListHandle);
+    if (commandList == nullptr) {
+        std::printf("Failed to create command list.\n");
+        renderer.shutdown();
+        platform.shutdown();
+        ImGui::DestroyContext();
+        instance->shutdown();
+        return 1;
+    }
+    auto& commands = *commandList;
 
     while (surface.pollEvents() && !surface.shouldClose()) {
         platform.newFrame();
@@ -108,7 +118,7 @@ int main()
         renderer.render(ImGui::GetDrawData(), commands);
         commands.endRenderPass();
         commands.end();
-        device->submit(&frame);
+        device->submit(commandListHandle, &frame);
 
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
             ImGui::UpdatePlatformWindows();

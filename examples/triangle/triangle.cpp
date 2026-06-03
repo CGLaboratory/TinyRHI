@@ -72,7 +72,14 @@ int main()
         return 1;
     }
 
-    auto& commands = device->getCommandList();
+    const CommandListHandle commandListHandle = device->createCommandList();
+    auto* commandList = device->getCommandList(commandListHandle);
+    if (commandList == nullptr) {
+        std::printf("Failed to create command list.\n");
+        instance->shutdown();
+        return 1;
+    }
+    auto& commands = *commandList;
 
     const Vertex vertices[] = {
         {{0.0f, 0.6f, 0.0f}, {0.95f, 0.25f, 0.25f, 1.0f}},
@@ -149,7 +156,7 @@ int main()
         commands.endRenderPass();
         commands.end();
 
-        device->submit(&frame);
+        device->submit(commandListHandle, &frame);
         device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }

@@ -56,6 +56,7 @@ struct TextureViewHandleTag;
 struct SamplerHandleTag;
 struct BindGroupLayoutHandleTag;
 struct BindGroupHandleTag;
+struct CommandListHandleTag;
 struct SwapchainHandleTag;
 struct SurfaceHandleTag;
 
@@ -68,6 +69,7 @@ using TextureViewHandle = Handle<TextureViewHandleTag>;
 using SamplerHandle = Handle<SamplerHandleTag>;
 using BindGroupLayoutHandle = Handle<BindGroupLayoutHandleTag>;
 using BindGroupHandle = Handle<BindGroupHandleTag>;
+using CommandListHandle = Handle<CommandListHandleTag>;
 using SwapchainHandle = Handle<SwapchainHandleTag>;
 using SurfaceHandle = Handle<SurfaceHandleTag>;
 

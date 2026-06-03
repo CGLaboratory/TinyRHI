@@ -135,10 +135,12 @@ public:
     Swapchain* getSwapchain(SwapchainHandle swapchain) override;
 
     bool beginFrame(SwapchainHandle swapchain, SwapchainFrame& frame) override;
-    void submit(const SwapchainFrame* frame = nullptr) override;
     void present(const SwapchainFrame& frame) override;
 
-    CommandList& getCommandList() override;
+    CommandListHandle createCommandList() override;
+    void destroyCommandList(CommandListHandle command_list) override;
+    CommandList* getCommandList(CommandListHandle command_list) override;
+    void submit(CommandListHandle command_list, const SwapchainFrame* frame = nullptr) override;
 
     OpenGLBuffer* getBuffer(BufferHandle handle);
     OpenGLTexture* getTexture(TextureHandle handle);
@@ -175,7 +177,7 @@ private:
     std::vector<OpenGLShader> m_shaders;
     std::vector<OpenGLPipeline> m_pipelines;
     std::vector<OpenGLFramebuffer> m_framebuffers;
-    std::unique_ptr<OpenGLCommandList> m_command_list;
+    std::vector<std::unique_ptr<OpenGLCommandList>> m_command_lists;
     SwapchainHandle m_active_frame_swapchain{};
     OpenGLNativeContext m_native_context{};
 };
