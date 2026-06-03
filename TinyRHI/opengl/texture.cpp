@@ -66,7 +66,8 @@ TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
     m_textures.push_back(OpenGLTexture{
         .id = texture,
         .desc = normalizedDesc,
-        .state = normalizedDesc.initial_state,
+        .subresource_states = std::vector<ResourceState>(normalizedDesc.mip_levels * normalizedDesc.array_layers,
+                                                         normalizedDesc.initial_state),
         .is_swapchain_backbuffer = false,
     });
     return makeHandle<TextureHandle>(m_textures.size() - 1);
@@ -120,7 +121,8 @@ TextureViewHandle OpenGLDevice::createSwapchainTextureView(TextureFormat format,
     m_textures.push_back(OpenGLTexture{
         .id = 0,
         .desc = TextureDesc{.width = 1, .height = 1, .format = format, .usage = usage},
-        .state = isDepthFormat(format) ? ResourceState::Undefined : ResourceState::Present,
+        .subresource_states =
+            std::vector<ResourceState>{isDepthFormat(format) ? ResourceState::Undefined : ResourceState::Present},
         .is_swapchain_backbuffer = true,
         .swapchain = swapchain,
     });

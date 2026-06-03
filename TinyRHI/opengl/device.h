@@ -48,7 +48,7 @@ struct OpenGLPipeline {
 struct OpenGLTexture {
     GLuint id{0};
     TextureDesc desc{};
-    ResourceState state{ResourceState::Undefined};
+    std::vector<ResourceState> subresource_states;
     bool is_swapchain_backbuffer{false};
     SwapchainHandle swapchain{};
 };

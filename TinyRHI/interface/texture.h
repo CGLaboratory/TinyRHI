@@ -72,6 +72,16 @@ constexpr TextureAspect operator&(TextureAspect lhs, TextureAspect rhs)
     return static_cast<TextureAspect>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 
+inline constexpr uint32_t kRemainingTextureSubresources = 0xff'ff'ff'ffu;
+
+struct TextureSubresourceRange {
+    TextureAspect aspect{TextureAspect::None};
+    uint32_t base_mip_level{0};
+    uint32_t mip_level_count{kRemainingTextureSubresources};
+    uint32_t base_array_layer{0};
+    uint32_t array_layer_count{kRemainingTextureSubresources};
+};
+
 struct TextureDesc {
     uint32_t width{1};
     uint32_t height{1};

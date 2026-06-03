@@ -19,6 +19,7 @@ struct BufferTransition {
 struct TextureTransition {
     TextureHandle texture{};
     ResourceState state{ResourceState::Undefined};
+    TextureSubresourceRange range{};
 };
 
 struct BufferCopyRegion {
@@ -80,10 +81,8 @@ public:
 
     virtual void transition(const BufferTransition* transitions, uint32_t count) = 0;
     virtual void transition(const TextureTransition* transitions, uint32_t count) = 0;
-    virtual void copyBufferToBuffer(BufferHandle src,
-                                    BufferHandle dst,
-                                    const BufferCopyRegion* regions,
-                                    uint32_t count) = 0;
+    virtual void
+        copyBufferToBuffer(BufferHandle src, BufferHandle dst, const BufferCopyRegion* regions, uint32_t count) = 0;
     virtual void copyBufferToTexture(BufferHandle src,
                                      TextureHandle dst,
                                      const BufferTextureCopyRegion* regions,

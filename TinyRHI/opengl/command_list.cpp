@@ -222,6 +222,101 @@ bool textureStateCompatible(const OpenGLTexture& texture, ResourceState state)
     return false;
 }
 
+TextureAspect defaultTextureAspect(TextureFormat format)
+{
+    if (format == TextureFormat::Depth24Stencil8) {
+        return TextureAspect::DepthStencil;
+    }
+    if (format == TextureFormat::Depth32F) {
+        return TextureAspect::Depth;
+    }
+
+    return TextureAspect::Color;
+}
+
+bool textureAspectCompatible(TextureFormat format, TextureAspect aspect)
+{
+    if (aspect == TextureAspect::None) {
+        return false;
+    }
+
+    if (isDepthFormat(format)) {
+        return (aspect & TextureAspect::DepthStencil) != TextureAspect::None;
+    }
+
+    return aspect == TextureAspect::Color;
+}
+
+bool normalizeTextureRange(const TextureDesc& desc, TextureSubresourceRange range, TextureSubresourceRange& normalized)
+{
+    if (range.aspect == TextureAspect::None) {
+        range.aspect = defaultTextureAspect(desc.format);
+    }
+    if (!textureAspectCompatible(desc.format, range.aspect) || range.base_mip_level >= desc.mip_levels ||
+        range.base_array_layer >= desc.array_layers) {
+        return false;
+    }
+
+    if (range.mip_level_count == kRemainingTextureSubresources) {
+        range.mip_level_count = desc.mip_levels - range.base_mip_level;
+    }
+    if (range.array_layer_count == kRemainingTextureSubresources) {
+        range.array_layer_count = desc.array_layers - range.base_array_layer;
+    }
+
+    if (range.mip_level_count == 0 || range.array_layer_count == 0 ||
+        range.mip_level_count > desc.mip_levels - range.base_mip_level ||
+        range.array_layer_count > desc.array_layers - range.base_array_layer) {
+        return false;
+    }
+
+    normalized = range;
+    return true;
+}
+
+TextureSubresourceRange textureViewRange(const OpenGLTextureView& view)
+{
+    return TextureSubresourceRange{
+        .aspect = view.aspect,
+        .base_mip_level = view.base_mip_level,
+        .mip_level_count = view.mip_level_count,
+        .base_array_layer = view.base_array_layer,
+        .array_layer_count = view.array_layer_count,
+    };
+}
+
+size_t textureSubresourceIndex(const TextureDesc& desc, uint32_t mipLevel, uint32_t arrayLayer)
+{
+    return static_cast<size_t>(arrayLayer) * desc.mip_levels + mipLevel;
+}
+
+ResourceState textureSubresourceState(const OpenGLTexture& texture, uint32_t mipLevel, uint32_t arrayLayer)
+{
+    const size_t index = textureSubresourceIndex(texture.desc, mipLevel, arrayLayer);
+    return index < texture.subresource_states.size() ? texture.subresource_states[index] : ResourceState::Undefined;
+}
+
+bool textureRangeStateUsable(const OpenGLTexture& texture, const TextureSubresourceRange& range, ResourceState required)
+{
+    TextureSubresourceRange normalized{};
+    if (!normalizeTextureRange(texture.desc, range, normalized)) {
+        return false;
+    }
+
+    for (uint32_t layer = normalized.base_array_layer;
+         layer < normalized.base_array_layer + normalized.array_layer_count;
+         ++layer) {
+        for (uint32_t mip = normalized.base_mip_level; mip < normalized.base_mip_level + normalized.mip_level_count;
+             ++mip) {
+            if (textureSubresourceState(texture, mip, layer) != required) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 bool bufferStateUsable(const OpenGLBuffer& buffer, ResourceState required)
 {
     return buffer.state == required;
@@ -230,11 +325,6 @@ bool bufferStateUsable(const OpenGLBuffer& buffer, ResourceState required)
 bool bufferStorageStateUsable(const OpenGLBuffer& buffer)
 {
     return buffer.state == ResourceState::StorageRead || buffer.state == ResourceState::StorageReadWrite;
-}
-
-bool textureStateUsable(const OpenGLTexture& texture, ResourceState required)
-{
-    return texture.state == required;
 }
 
 bool bufferWriteState(ResourceState state)
@@ -311,13 +401,29 @@ GLbitfield textureBarrierBits(ResourceState oldState, ResourceState newState)
     return bits;
 }
 
-void transitionTexture(OpenGLTexture& texture, ResourceState state)
+GLbitfield transitionTextureRange(OpenGLTexture& texture, const TextureSubresourceRange& range, ResourceState state)
 {
-    const GLbitfield bits = textureBarrierBits(texture.state, state);
-    if (bits != 0) {
-        glMemoryBarrier(bits);
+    TextureSubresourceRange normalized{};
+    if (!normalizeTextureRange(texture.desc, range, normalized)) {
+        return 0;
     }
-    texture.state = state;
+
+    GLbitfield bits = 0;
+    for (uint32_t layer = normalized.base_array_layer;
+         layer < normalized.base_array_layer + normalized.array_layer_count;
+         ++layer) {
+        for (uint32_t mip = normalized.base_mip_level; mip < normalized.base_mip_level + normalized.mip_level_count;
+             ++mip) {
+            const size_t index = textureSubresourceIndex(texture.desc, mip, layer);
+            if (index >= texture.subresource_states.size()) {
+                continue;
+            }
+            bits |= textureBarrierBits(texture.subresource_states[index], state);
+            texture.subresource_states[index] = state;
+        }
+    }
+
+    return bits;
 }
 } // namespace
 
@@ -407,7 +513,11 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
                     "OpenGL render pass begin failed: color attachment texture was not created for rendering.\n");
                 return;
             }
-            transitionTexture(*glTexture, ResourceState::ColorAttachment);
+            const GLbitfield bits =
+                transitionTextureRange(*glTexture, textureViewRange(*glView), ResourceState::ColorAttachment);
+            if (bits != 0) {
+                glMemoryBarrier(bits);
+            }
         }
     }
 
@@ -421,7 +531,11 @@ void OpenGLCommandList::beginRenderPass(const RenderPassBeginInfo& info)
                     "stencil rendering.\n");
                 return;
             }
-            transitionTexture(*glTexture, ResourceState::DepthStencilWrite);
+            const GLbitfield bits =
+                transitionTextureRange(*glTexture, textureViewRange(*glView), ResourceState::DepthStencilWrite);
+            if (bits != 0) {
+                glMemoryBarrier(bits);
+            }
         }
     }
 
@@ -636,7 +750,7 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 auto* glView = m_device.getTextureView(entry.texture_view);
                 auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
                 if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer) {
-                    if (!textureStateUsable(*glTexture, ResourceState::ShaderRead)) {
+                    if (!textureRangeStateUsable(*glTexture, textureViewRange(*glView), ResourceState::ShaderRead)) {
                         std::printf("OpenGL bind group binding failed: sampled texture is not in ShaderRead state.\n");
                         break;
                     }
@@ -650,7 +764,8 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer &&
                     hasUsage(glTexture->desc.usage, TextureUsage::Storage) && !isDepthFormat(glView->format) &&
                     !isSRGBFormat(glView->format)) {
-                    if (!textureStateUsable(*glTexture, ResourceState::StorageReadWrite)) {
+                    if (!textureRangeStateUsable(
+                            *glTexture, textureViewRange(*glView), ResourceState::StorageReadWrite)) {
                         std::printf(
                             "OpenGL bind group binding failed: storage texture is not in StorageReadWrite state.\n");
                         break;
@@ -679,7 +794,7 @@ void OpenGLCommandList::setBindGroup(uint32_t set,
                 auto* glTexture = glView ? m_device.getTexture(glView->texture) : nullptr;
                 auto* glSampler = m_device.getSampler(entry.sampler);
                 if (glTexture != nullptr && !glTexture->is_swapchain_backbuffer) {
-                    if (!textureStateUsable(*glTexture, ResourceState::ShaderRead)) {
+                    if (!textureRangeStateUsable(*glTexture, textureViewRange(*glView), ResourceState::ShaderRead)) {
                         std::printf(
                             "OpenGL bind group binding failed: combined image texture is not in ShaderRead state.\n");
                         break;
@@ -836,8 +951,7 @@ void OpenGLCommandList::transition(const TextureTransition* transitions, uint32_
             continue;
         }
 
-        bits |= textureBarrierBits(glTexture->state, transition.state);
-        glTexture->state = transition.state;
+        bits |= transitionTextureRange(*glTexture, transition.range, transition.state);
     }
 
     if (bits != 0) {
@@ -909,8 +1023,8 @@ void OpenGLCommandList::copyBufferToTexture(BufferHandle src,
         std::printf("OpenGL texture copy failed: source buffer is not in CopySrc state or usage.\n");
         return;
     }
-    if (!hasUsage(dstTexture->desc.usage, TextureUsage::CopyDst) || dstTexture->state != ResourceState::CopyDst) {
-        std::printf("OpenGL texture copy failed: destination texture is not in CopyDst state or usage.\n");
+    if (!hasUsage(dstTexture->desc.usage, TextureUsage::CopyDst)) {
+        std::printf("OpenGL texture copy failed: destination texture was not created with CopyDst usage.\n");
         return;
     }
 
@@ -931,6 +1045,10 @@ void OpenGLCommandList::copyBufferToTexture(BufferHandle src,
         if (region.texture_width == 0 || region.texture_height == 0 ||
             region.mip_level >= dstTexture->desc.mip_levels || region.array_layer >= dstTexture->desc.array_layers ||
             region.buffer_offset > srcBuffer->size) {
+            continue;
+        }
+        if (textureSubresourceState(*dstTexture, region.mip_level, region.array_layer) != ResourceState::CopyDst) {
+            std::printf("OpenGL texture copy failed: destination subresource is not in CopyDst state.\n");
             continue;
         }
 
@@ -999,8 +1117,8 @@ void OpenGLCommandList::generateMipmaps(TextureHandle texture)
         return;
     }
 
-    if (glTexture->state != ResourceState::CopyDst) {
-        std::printf("OpenGL mipmap generation failed: texture is not in CopyDst state.\n");
+    if (!textureRangeStateUsable(*glTexture, TextureSubresourceRange{}, ResourceState::CopyDst)) {
+        std::printf("OpenGL mipmap generation failed: texture subresources are not all in CopyDst state.\n");
         return;
     }
 
