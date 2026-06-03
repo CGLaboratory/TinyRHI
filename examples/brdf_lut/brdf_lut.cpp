@@ -16,7 +16,7 @@ constexpr uint32_t kComputeGroupSize = 8;
 constexpr const char* kComputeShader = R"GLSL(
 #version 450 core
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(rgba16f, binding = 0) writeonly uniform image2D uBRDFLut;
+layout(rg16f, binding = 0) writeonly uniform image2D uBRDFLut;
 
 const float PI = 3.14159265359;
 const uint SAMPLE_COUNT = 1024u;
@@ -173,7 +173,7 @@ int main()
         .width = kLutSize,
         .height = kLutSize,
         .dimension = TextureDimension::Texture2D,
-        .format = TextureFormat::RGBA16F,
+        .format = TextureFormat::RG16F,
         .usage = TextureUsage::Sampled | TextureUsage::Storage,
         .mip_levels = 1,
         .array_layers = 1,
@@ -181,7 +181,7 @@ int main()
     TextureViewHandle brdfLutView = device->createTextureView(TextureViewDesc{
         .texture = brdfLut,
         .view_dimension = TextureViewDimension::Texture2D,
-        .format = TextureFormat::RGBA16F,
+        .format = TextureFormat::RG16F,
         .aspect = TextureAspect::Color,
         .mip_level_count = 1,
         .array_layer_count = 1,
