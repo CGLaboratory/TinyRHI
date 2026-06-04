@@ -36,7 +36,7 @@ constexpr float kPi = 3.14159265358979323846f;
 constexpr uint32_t kEnvironmentSize = 512;
 constexpr uint32_t kIrradianceSize = 32;
 constexpr uint32_t kPrefilterSize = 128;
-constexpr uint32_t kMinSampledPrefilterSize = 4;
+constexpr uint32_t kMinSampledPrefilterSize = 8;
 constexpr uint32_t kBrdfLutSize = 512;
 constexpr uint32_t kComputeGroupSize = 8;
 
@@ -140,6 +140,12 @@ struct GBufferResources {
     GpuTexture albedo_metallic;
     GpuTexture depth;
     BindGroupHandle lighting_bind_group{};
+};
+
+struct FreeCamera {
+    Vec3 position{};
+    float yaw{0.0f};
+    float pitch{0.0f};
 };
 
 Vec3 operator+(Vec3 lhs, Vec3 rhs)
@@ -321,6 +327,28 @@ Mat4 lookAt(Vec3 eye, Vec3 center, Vec3 up)
     result.m[13] = -dot(u, eye);
     result.m[14] = dot(f, eye);
     return result;
+}
+
+Vec3 forwardFromYawPitch(float yaw, float pitch)
+{
+    const float cosPitch = std::cos(pitch);
+    return normalize(Vec3{
+        std::sin(yaw) * cosPitch,
+        std::sin(pitch),
+        std::cos(yaw) * cosPitch,
+    });
+}
+
+POINT clientCenterToScreen(HWND hwnd)
+{
+    RECT rect{};
+    GetClientRect(hwnd, &rect);
+    POINT center{
+        (rect.left + rect.right) / 2,
+        (rect.top + rect.bottom) / 2,
+    };
+    ClientToScreen(hwnd, &center);
+    return center;
 }
 
 bool invertMatrix(const Mat4& input, Mat4& output)
@@ -1995,8 +2023,8 @@ int main(int argc, char** argv)
     const std::filesystem::path hdrPath = findFile(argc,
                                                    argv,
                                                    {
-                                                       "plains_sunset_2k.hdr",
-                                                       "examples/IBL/plains_sunset_2k.hdr",
+                                                       "newport_loft.hdr",
+                                                       "examples/IBL/newport_loft.hdr",
                                                    });
 
     auto instance = BackendFactory::createInstance(BackendType::OpenGL);
@@ -2173,7 +2201,19 @@ int main(int argc, char** argv)
     const Vec3 boundsCenter = (model.bounds.min + model.bounds.max) * 0.5f;
     const Vec3 boundsExtent = model.bounds.max - model.bounds.min;
     const float radius = std::max(4.0f, length(boundsExtent) * 0.55f);
-    const auto start = std::chrono::steady_clock::now();
+    const HWND window = surface.hwnd();
+    const Vec3 worldUp{0.0f, 1.0f, 0.0f};
+    FreeCamera camera;
+    camera.position = boundsCenter + Vec3{0.0f, radius * 0.25f, radius * 2.0f};
+    {
+        const Vec3 initialForward = normalize(boundsCenter - camera.position);
+        camera.yaw = std::atan2(initialForward.x, initialForward.z);
+        camera.pitch = std::asin(std::clamp(initialForward.y, -1.0f, 1.0f));
+    }
+    const float moveSpeed = std::max(3.0f, radius * 1.25f);
+    const float mouseSensitivity = 0.0025f;
+    bool mouseLookActive = false;
+    auto previousFrame = std::chrono::steady_clock::now();
     GBufferResources gbuffer;
 
     while (surface.pollEvents() && !surface.shouldClose()) {
@@ -2186,13 +2226,79 @@ int main(int argc, char** argv)
             break;
         }
 
-        const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+        const auto now = std::chrono::steady_clock::now();
+        float dt = std::chrono::duration<float>(now - previousFrame).count();
+        previousFrame = now;
+        dt = std::clamp(dt, 0.0f, 0.05f);
+
+        const bool windowFocused = GetForegroundWindow() == window;
+        if (!windowFocused && mouseLookActive) {
+            mouseLookActive = false;
+            ReleaseCapture();
+            while (ShowCursor(TRUE) < 0) {}
+        }
+        if (windowFocused) {
+            const bool rightButtonDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+            if (rightButtonDown && !mouseLookActive) {
+                mouseLookActive = true;
+                SetCapture(window);
+                while (ShowCursor(FALSE) >= 0) {}
+                const POINT center = clientCenterToScreen(window);
+                SetCursorPos(center.x, center.y);
+            } else if (!rightButtonDown && mouseLookActive) {
+                mouseLookActive = false;
+                ReleaseCapture();
+                while (ShowCursor(TRUE) < 0) {}
+            }
+
+            if (mouseLookActive) {
+                const POINT center = clientCenterToScreen(window);
+                POINT cursor{};
+                if (GetCursorPos(&cursor)) {
+                    const LONG deltaX = cursor.x - center.x;
+                    const LONG deltaY = cursor.y - center.y;
+                    if (deltaX != 0 || deltaY != 0) {
+                        camera.yaw += static_cast<float>(deltaX) * mouseSensitivity;
+                        camera.pitch = std::clamp(camera.pitch - static_cast<float>(deltaY) * mouseSensitivity,
+                                                  -1.53f,
+                                                  1.53f);
+                    }
+                }
+                SetCursorPos(center.x, center.y);
+            }
+
+            const Vec3 forward = forwardFromYawPitch(camera.yaw, camera.pitch);
+            const Vec3 right = normalize(cross(forward, worldUp));
+            const Vec3 forwardOnPlane = normalize(Vec3{forward.x, 0.0f, forward.z});
+            float speed = moveSpeed * dt;
+            if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+                speed *= 4.0f;
+            }
+            if (GetAsyncKeyState('W') & 0x8000) {
+                camera.position = camera.position + forwardOnPlane * speed;
+            }
+            if (GetAsyncKeyState('S') & 0x8000) {
+                camera.position = camera.position - forwardOnPlane * speed;
+            }
+            if (GetAsyncKeyState('D') & 0x8000) {
+                camera.position = camera.position + right * speed;
+            }
+            if (GetAsyncKeyState('A') & 0x8000) {
+                camera.position = camera.position - right * speed;
+            }
+            if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+                camera.position.y += speed;
+            }
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
+                camera.position.y -= speed;
+            }
+        }
+
         const float aspect =
             frame.height > 0 ? static_cast<float>(frame.width) / static_cast<float>(frame.height) : 1.0f;
-        const Vec3 cameraPosition =
-            boundsCenter + Vec3{std::sin(elapsed * 0.25f) * radius, radius * 0.25f, std::cos(elapsed * 0.25f) * radius};
         const Mat4 projection = perspective(60.0f * kPi / 180.0f, aspect, 0.05f, radius * 8.0f);
-        const Mat4 view = lookAt(cameraPosition, boundsCenter, Vec3{0.0f, 1.0f, 0.0f});
+        const Vec3 forward = forwardFromYawPitch(camera.yaw, camera.pitch);
+        const Mat4 view = lookAt(camera.position, camera.position + forward, worldUp);
         const Mat4 viewProjection = multiply(projection, view);
         Mat4 inverseViewProjection{};
         invertMatrix(viewProjection, inverseViewProjection);
@@ -2267,7 +2373,7 @@ int main(int argc, char** argv)
 
         const LightingPushConstants lightingConstants{
             .inverse_view_projection = inverseViewProjection,
-            .camera_exposure = Vec4{cameraPosition.x, cameraPosition.y, cameraPosition.z, 1.0f},
+            .camera_exposure = Vec4{camera.position.x, camera.position.y, camera.position.z, 1.0f},
             .light_direction_intensity = Vec4{-0.45f, -0.8f, -0.35f, 3.0f},
             .light_color_ibl = Vec4{1.0f, 0.96f, 0.9f, 1.4f},
             .params = Vec4{static_cast<float>(maxSampledPrefilterMip(ibl.prefilter_mip_levels)), 0.0f, 0.0f, 0.0f},
@@ -2285,6 +2391,11 @@ int main(int argc, char** argv)
         device->submit(commandListHandle, &frame);
         device->present(frame);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    if (mouseLookActive) {
+        ReleaseCapture();
+        while (ShowCursor(TRUE) < 0) {}
     }
 
     destroyGBuffer(*device, gbuffer);
