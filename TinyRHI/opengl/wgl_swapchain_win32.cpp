@@ -348,6 +348,8 @@ bool ensureOpenGLNativeContext(OpenGLNativeContext& context, OpenGLNativeSwapcha
         context.gl_loaded = true;
     }
 
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
     if (g_wglSwapIntervalEXT != nullptr) {
         g_wglSwapIntervalEXT(vsync ? 1 : 0);
     }

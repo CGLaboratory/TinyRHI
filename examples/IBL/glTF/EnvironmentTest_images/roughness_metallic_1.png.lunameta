@@ -1,0 +1,16 @@
+Asset:
+  Handle: 13222649401403143103
+  Type: Texture
+  Name: roughness_metallic_1
+  FilePath: Assets/Models/glTF/EnvironmentTest_images/roughness_metallic_1.png
+  MemoryOnly: false
+  Config:
+    GenerateMipmaps: true
+    ColorSpace: Linear
+    Sampler:
+      MinFilter: Linear
+      MagFilter: Linear
+      MipFilter: Linear
+      AddressU: Repeat
+      AddressV: Repeat
+      AddressW: Repeat

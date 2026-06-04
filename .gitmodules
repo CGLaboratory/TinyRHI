@@ -5,3 +5,6 @@
 	path = examples/dependences/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "examples/dependences/tinygltf"]
+	path = examples/dependences/tinygltf
+	url = https://github.com/syoyo/tinygltf.git
