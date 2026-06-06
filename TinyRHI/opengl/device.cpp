@@ -154,21 +154,18 @@ bool attachFramebufferTextureView(GLuint framebuffer,
                                   const OpenGLTexture& texture,
                                   const OpenGLTextureView& view)
 {
-    if (texture.desc.dimension == TextureDimension::TextureCube) {
-        if (view.view_dimension != TextureViewDimension::Texture2D || view.array_layer_count != 1) {
-            return false;
-        }
+    if (view.view_dimension != TextureViewDimension::Texture2D || view.array_layer_count != 1) {
+        return false;
+    }
 
+    if (texture.desc.dimension == TextureDimension::TextureCube ||
+        (texture.desc.dimension == TextureDimension::Texture2D && texture.desc.array_layers > 1)) {
         glNamedFramebufferTextureLayer(framebuffer,
                                        attachment,
                                        texture.id,
                                        static_cast<GLint>(view.base_mip_level),
                                        static_cast<GLint>(view.base_array_layer));
         return true;
-    }
-
-    if (view.view_dimension != TextureViewDimension::Texture2D) {
-        return false;
     }
 
     glNamedFramebufferTexture(framebuffer, attachment, texture.id, view.base_mip_level);

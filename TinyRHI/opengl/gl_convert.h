@@ -24,6 +24,7 @@ GLenum toGLFilterMode(FilterMode mode);
 GLenum toGLMinFilter(FilterMode minFilter, MipFilter mipFilter);
 GLenum toGLAddressMode(AddressMode mode);
 GLenum toGLTextureTarget(TextureDimension dimension);
+GLenum toGLTextureTarget(const TextureDesc& desc);
 GLenum toGLTextureInternalFormat(TextureFormat format);
 GLenum toGLTextureUploadFormat(TextureFormat format);
 GLenum toGLTextureUploadType(TextureFormat format);

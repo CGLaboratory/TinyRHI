@@ -1069,7 +1069,8 @@ void OpenGLCommandList::copyBufferToTexture(BufferHandle src,
 
         glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / bytesPerPixel));
         const auto* bufferOffset = reinterpret_cast<const void*>(region.buffer_offset);
-        if (dstTexture->desc.dimension == TextureDimension::TextureCube) {
+        if (dstTexture->desc.dimension == TextureDimension::TextureCube ||
+            (dstTexture->desc.dimension == TextureDimension::Texture2D && dstTexture->desc.array_layers > 1)) {
             glTextureSubImage3D(dstTexture->id,
                                 static_cast<GLint>(region.mip_level),
                                 static_cast<GLint>(region.texture_x),

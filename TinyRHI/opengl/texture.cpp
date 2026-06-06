@@ -50,12 +50,21 @@ TextureHandle OpenGLDevice::createTexture(const TextureDesc& desc)
     }
 
     GLuint texture = 0;
-    glCreateTextures(toGLTextureTarget(normalizedDesc.dimension), 1, &texture);
-    glTextureStorage2D(texture,
-                       static_cast<GLsizei>(normalizedDesc.mip_levels),
-                       toGLTextureInternalFormat(normalizedDesc.format),
-                       static_cast<GLsizei>(normalizedDesc.width),
-                       static_cast<GLsizei>(normalizedDesc.height));
+    glCreateTextures(toGLTextureTarget(normalizedDesc), 1, &texture);
+    if (normalizedDesc.dimension == TextureDimension::Texture2D && normalizedDesc.array_layers > 1) {
+        glTextureStorage3D(texture,
+                           static_cast<GLsizei>(normalizedDesc.mip_levels),
+                           toGLTextureInternalFormat(normalizedDesc.format),
+                           static_cast<GLsizei>(normalizedDesc.width),
+                           static_cast<GLsizei>(normalizedDesc.height),
+                           static_cast<GLsizei>(normalizedDesc.array_layers));
+    } else {
+        glTextureStorage2D(texture,
+                           static_cast<GLsizei>(normalizedDesc.mip_levels),
+                           toGLTextureInternalFormat(normalizedDesc.format),
+                           static_cast<GLsizei>(normalizedDesc.width),
+                           static_cast<GLsizei>(normalizedDesc.height));
+    }
 
     glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

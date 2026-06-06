@@ -36,6 +36,8 @@ TINYRHI_TEST_CASE("texture formats map to OpenGL storage and upload enums")
 {
     TINYRHI_CHECK(toGLTextureTarget(TextureDimension::Texture2D) == GL_TEXTURE_2D);
     TINYRHI_CHECK(toGLTextureTarget(TextureDimension::TextureCube) == GL_TEXTURE_CUBE_MAP);
+    TINYRHI_CHECK(toGLTextureTarget(TextureDesc{.dimension = TextureDimension::Texture2D, .array_layers = 4}) ==
+                  GL_TEXTURE_2D_ARRAY);
 
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_UNorm) == GL_RGBA8);
     TINYRHI_CHECK(toGLTextureInternalFormat(TextureFormat::RGBA8_SRGB) == GL_SRGB8_ALPHA8);

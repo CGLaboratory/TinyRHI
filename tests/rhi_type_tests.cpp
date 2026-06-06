@@ -41,7 +41,7 @@ TINYRHI_TEST_CASE("texture cube descriptors normalize and validate")
 
     TextureDesc texture2DArray = texture2D;
     texture2DArray.array_layers = 6;
-    TINYRHI_CHECK(!textureDescValid(texture2DArray));
+    TINYRHI_CHECK(textureDescValid(texture2DArray));
 
     TextureDesc cubeDesc = normalizeTextureDesc(TextureDesc{
         .width = 128,
@@ -91,6 +91,52 @@ TINYRHI_TEST_CASE("texture cube descriptors normalize and validate")
                                             .format = TextureFormat::RGBA16F,
                                             .base_array_layer = 3,
                                             .array_layer_count = 2,
+                                        }));
+}
+
+TINYRHI_TEST_CASE("texture 2D array descriptors and views validate")
+{
+    const TextureDesc shadowMapArray{
+        .width = 2048,
+        .height = 2048,
+        .dimension = TextureDimension::Texture2D,
+        .format = TextureFormat::Depth32F,
+        .usage = TextureUsage::DepthStencil | TextureUsage::Sampled,
+        .mip_levels = 1,
+        .array_layers = 4,
+    };
+
+    TINYRHI_CHECK(textureDescValid(shadowMapArray));
+
+    for (uint32_t layer = 0; layer < shadowMapArray.array_layers; ++layer) {
+        TINYRHI_CHECK(textureViewDescValid(shadowMapArray,
+                                           TextureViewDesc{
+                                               .view_dimension = TextureViewDimension::Texture2D,
+                                               .format = TextureFormat::Depth32F,
+                                               .aspect = TextureAspect::Depth,
+                                               .base_array_layer = layer,
+                                               .array_layer_count = 1,
+                                           }));
+    }
+
+    TINYRHI_CHECK(textureViewDescValid(shadowMapArray,
+                                       TextureViewDesc{
+                                           .view_dimension = TextureViewDimension::Texture2DArray,
+                                           .format = TextureFormat::Depth32F,
+                                           .aspect = TextureAspect::Depth,
+                                           .array_layer_count = 4,
+                                       }));
+    TINYRHI_CHECK(!textureViewDescValid(shadowMapArray,
+                                        TextureViewDesc{
+                                            .view_dimension = TextureViewDimension::Texture2D,
+                                            .format = TextureFormat::Depth32F,
+                                            .aspect = TextureAspect::Depth,
+                                            .array_layer_count = 2,
+                                        }));
+    TINYRHI_CHECK(!textureViewDescValid(TextureDesc{.array_layers = 1},
+                                        TextureViewDesc{
+                                            .view_dimension = TextureViewDimension::Texture2DArray,
+                                            .array_layer_count = 1,
                                         }));
 }
 

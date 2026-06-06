@@ -25,7 +25,8 @@ enum class TextureDimension {
 
 enum class TextureViewDimension {
     Texture2D,
-    TextureCube
+    TextureCube,
+    Texture2DArray
 };
 
 enum class TextureUsage : uint32_t {
@@ -121,7 +122,7 @@ inline bool textureDescValid(const TextureDesc& desc)
 
     switch (desc.dimension) {
         case TextureDimension::Texture2D:
-            return desc.array_layers == 1;
+            return true;
         case TextureDimension::TextureCube:
             return desc.width == desc.height && desc.array_layers == 6;
     }
@@ -141,8 +142,11 @@ inline bool textureViewDescValid(const TextureDesc& textureDesc, const TextureVi
 
     switch (textureDesc.dimension) {
         case TextureDimension::Texture2D:
-            return viewDesc.view_dimension == TextureViewDimension::Texture2D && viewDesc.base_array_layer == 0 &&
-                   viewDesc.array_layer_count == 1;
+            if (viewDesc.view_dimension == TextureViewDimension::Texture2D) {
+                return viewDesc.array_layer_count == 1;
+            }
+
+            return viewDesc.view_dimension == TextureViewDimension::Texture2DArray && textureDesc.array_layers > 1;
         case TextureDimension::TextureCube:
             if (viewDesc.view_dimension == TextureViewDimension::TextureCube) {
                 return viewDesc.base_array_layer == 0 && viewDesc.array_layer_count == 6;

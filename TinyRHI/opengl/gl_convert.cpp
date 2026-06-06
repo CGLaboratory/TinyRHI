@@ -191,6 +191,15 @@ GLenum toGLTextureTarget(TextureDimension dimension)
     return GL_TEXTURE_2D;
 }
 
+GLenum toGLTextureTarget(const TextureDesc& desc)
+{
+    if (desc.dimension == TextureDimension::Texture2D && desc.array_layers > 1) {
+        return GL_TEXTURE_2D_ARRAY;
+    }
+
+    return toGLTextureTarget(desc.dimension);
+}
+
 GLenum toGLTextureInternalFormat(TextureFormat format)
 {
     switch (format) {
