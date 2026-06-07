@@ -5,6 +5,7 @@ add_executable(tinyrhi_tests
     main.cpp
     pipeline_layout_tests.cpp
     rhi_type_tests.cpp
+    timestamp_query_tests.cpp
     texture_array_tests.cpp
 )
 

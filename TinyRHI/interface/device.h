@@ -10,6 +10,7 @@
 #include "surface.h"
 #include "swapchain.h"
 #include "texture.h"
+#include "timestamp_query.h"
 
 namespace lunalite::rhi {
 class Device {
@@ -44,6 +45,14 @@ public:
     virtual PipelineHandle createPipeline(const PipelineDesc& desc) = 0;
     virtual PipelineHandle createComputePipeline(const ComputePipelineDesc& desc) = 0;
     virtual void destroyPipeline(PipelineHandle pipeline) = 0;
+
+    virtual TimestampQueryPoolHandle createTimestampQueryPool(const TimestampQueryPoolDesc& desc) = 0;
+    virtual void destroyTimestampQueryPool(TimestampQueryPoolHandle pool) = 0;
+    // Non-blocking. Returns false if any requested timestamp is unavailable; output values are nanoseconds.
+    virtual bool getTimestampQueryResults(TimestampQueryPoolHandle pool,
+                                          uint32_t first,
+                                          uint32_t count,
+                                          uint64_t* timestamps_ns) = 0;
 
     virtual SwapchainHandle createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc) = 0;
     virtual void destroySwapchain(SwapchainHandle swapchain) = 0;

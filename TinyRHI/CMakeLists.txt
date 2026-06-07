@@ -9,6 +9,7 @@ add_library(TinyRHI STATIC
     opengl/shader.cpp
     opengl/surface.cpp
     opengl/swapchain.cpp
+    opengl/timestamp_query.cpp
     opengl/texture.cpp
     opengl/wgl_swapchain_win32.cpp
 )

@@ -59,6 +59,7 @@ struct BindGroupHandleTag;
 struct CommandListHandleTag;
 struct SwapchainHandleTag;
 struct SurfaceHandleTag;
+struct TimestampQueryPoolHandleTag;
 
 using BufferHandle = Handle<BufferHandleTag>;
 using ShaderHandle = Handle<ShaderHandleTag>;
@@ -72,6 +73,7 @@ using BindGroupHandle = Handle<BindGroupHandleTag>;
 using CommandListHandle = Handle<CommandListHandleTag>;
 using SwapchainHandle = Handle<SwapchainHandleTag>;
 using SurfaceHandle = Handle<SurfaceHandleTag>;
+using TimestampQueryPoolHandle = Handle<TimestampQueryPoolHandleTag>;
 
 enum class BackendType {
     OpenGL,

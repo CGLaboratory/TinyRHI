@@ -14,6 +14,8 @@ public:
 
     void begin() override;
     void end() override;
+    void resetTimestampQueries(TimestampQueryPoolHandle pool, uint32_t first, uint32_t count) override;
+    void writeTimestamp(TimestampQueryPoolHandle pool, uint32_t index) override;
     void beginRenderPass(const RenderPassBeginInfo& info) override;
     void endRenderPass() override;
     void setPipeline(PipelineHandle pipeline) override;

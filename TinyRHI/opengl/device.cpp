@@ -196,6 +196,12 @@ OpenGLDevice::~OpenGLDevice()
         glDeleteFramebuffers(1, &framebuffer.id);
     }
 
+    for (auto& pool : m_timestamp_query_pools) {
+        if (!pool.queries.empty()) {
+            glDeleteQueries(static_cast<GLsizei>(pool.queries.size()), pool.queries.data());
+        }
+    }
+
     for (auto& shader : m_shaders) {
         glDeleteShader(shader.id);
     }
@@ -561,6 +567,20 @@ OpenGLPipeline* OpenGLDevice::getPipeline(PipelineHandle handle)
     }
 
     return &pipeline;
+}
+
+OpenGLTimestampQueryPool* OpenGLDevice::getTimestampQueryPool(TimestampQueryPoolHandle handle)
+{
+    if (!handle || handle.value > m_timestamp_query_pools.size()) {
+        return nullptr;
+    }
+
+    auto& pool = m_timestamp_query_pools[handleIndex(handle)];
+    if (pool.queries.empty()) {
+        return nullptr;
+    }
+
+    return &pool;
 }
 
 GLuint OpenGLDevice::getFramebuffer(const RenderPassBeginInfo& info)

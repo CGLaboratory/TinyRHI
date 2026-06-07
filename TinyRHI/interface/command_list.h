@@ -6,6 +6,7 @@
 #include "resource_state.h"
 #include "rhi_types.h"
 #include "texture.h"
+#include "timestamp_query.h"
 
 #include <cstddef>
 
@@ -61,6 +62,9 @@ public:
 
     virtual void begin() = 0;
     virtual void end() = 0;
+
+    virtual void resetTimestampQueries(TimestampQueryPoolHandle pool, uint32_t first, uint32_t count) = 0;
+    virtual void writeTimestamp(TimestampQueryPoolHandle pool, uint32_t index) = 0;
 
     virtual void beginRenderPass(const RenderPassBeginInfo& info) = 0;
     virtual void endRenderPass() = 0;

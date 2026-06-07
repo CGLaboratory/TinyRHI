@@ -93,6 +93,11 @@ struct OpenGLFramebuffer {
     uint32_t height{0};
 };
 
+struct OpenGLTimestampQueryPool {
+    std::vector<GLuint> queries;
+    std::vector<bool> written;
+};
+
 class OpenGLDevice final : public Device {
 public:
     using SurfaceResolver = std::function<Surface*(SurfaceHandle)>;
@@ -130,6 +135,13 @@ public:
     PipelineHandle createComputePipeline(const ComputePipelineDesc& desc) override;
     void destroyPipeline(PipelineHandle pipeline) override;
 
+    TimestampQueryPoolHandle createTimestampQueryPool(const TimestampQueryPoolDesc& desc) override;
+    void destroyTimestampQueryPool(TimestampQueryPoolHandle pool) override;
+    bool getTimestampQueryResults(TimestampQueryPoolHandle pool,
+                                  uint32_t first,
+                                  uint32_t count,
+                                  uint64_t* timestamps_ns) override;
+
     SwapchainHandle createSwapchain(SurfaceHandle surface, const SwapchainDesc& desc) override;
     void destroySwapchain(SwapchainHandle swapchain) override;
     Swapchain* getSwapchain(SwapchainHandle swapchain) override;
@@ -151,6 +163,7 @@ public:
     OpenGLPipelineLayout* getPipelineLayout(PipelineLayoutHandle handle);
     OpenGLShader* getShader(ShaderHandle handle);
     OpenGLPipeline* getPipeline(PipelineHandle handle);
+    OpenGLTimestampQueryPool* getTimestampQueryPool(TimestampQueryPoolHandle handle);
 
     GLuint getFramebuffer(const RenderPassBeginInfo& info);
     TextureViewHandle createSwapchainTextureView(TextureFormat format, SwapchainHandle swapchain);
@@ -177,6 +190,7 @@ private:
     std::vector<OpenGLShader> m_shaders;
     std::vector<OpenGLPipeline> m_pipelines;
     std::vector<OpenGLFramebuffer> m_framebuffers;
+    std::vector<OpenGLTimestampQueryPool> m_timestamp_query_pools;
     std::vector<std::unique_ptr<OpenGLCommandList>> m_command_lists;
     SwapchainHandle m_active_frame_swapchain{};
     OpenGLNativeContext m_native_context{};
